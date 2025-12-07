@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth-token');
+export async function proxy(request: NextRequest) {
+  const token = request.cookies.get('placement_portal_token');
   const { pathname } = request.nextUrl;
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/api/auth/login', '/api/health', '/api/test'];
+  const publicRoutes = ['/setup', '/login', '/api/auth/login', '/api/setup/super-admin', '/api/health', '/api/test'];
   
   if (publicRoutes.some(route => pathname.startsWith(route))) {
     return NextResponse.next();

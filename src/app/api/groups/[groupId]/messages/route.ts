@@ -134,7 +134,7 @@ export async function POST(
         userId: user.userId,
         action: AUDIT_ACTIONS.MESSAGE_FLAGGED,
         entityType: ENTITY_TYPES.MESSAGE,
-        ipAddress: request.ip,
+        ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || undefined,
         userAgent: request.headers.get('user-agent') || undefined,
         details: {
           groupId,
@@ -179,7 +179,7 @@ export async function POST(
       action: AUDIT_ACTIONS.CREATE,
       entityType: ENTITY_TYPES.MESSAGE,
       entityId: message.id,
-      ipAddress: request.ip,
+      ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || undefined,
       userAgent: request.headers.get('user-agent') || undefined,
       details: { groupId, isModerated: moderation.flagged },
     });

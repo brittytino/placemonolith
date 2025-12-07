@@ -26,11 +26,11 @@ export default function LoginForm() {
       
       // Redirect based on role
       if (user.role === 'SUPER_ADMIN') {
-        router.push('/super-admin/dashboard');
+        router.push('/admin-dashboard');
       } else if (user.role === 'CLASS_REP') {
-        router.push('/class-rep/dashboard');
+        router.push('/class-rep-dashboard');
       } else {
-        router.push('/dashboard');
+        router.push('/student-dashboard');
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');

@@ -10,16 +10,21 @@ export async function POST(req: NextRequest) {
     if (authError) return authError;
 
     const body = await req.json();
-    const users = bulkUploadSchema.parse(body.users);
+    const users = body.users || body.students;
+
+    if (!users || !Array.isArray(users)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid request. Expected an array of users/students.'
+      }, { status: 400 });
+    }
 
     const result = await bulkCreateUsers(users);
 
     return NextResponse.json({
       success: true,
-      data: {
-        created: result.count,
-      },
-      message: `${result.count} users created successfully`,
+      data: result,
+      message: `Bulk upload completed. ${result.count} successful, ${result.failed.length} failed.`,
     });
   } catch (error) {
     return handleError(error);

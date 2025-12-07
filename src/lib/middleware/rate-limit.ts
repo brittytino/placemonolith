@@ -19,7 +19,7 @@ export interface RateLimitConfig {
 
 export function rateLimit(config: RateLimitConfig) {
   return async (req: NextRequest): Promise<NextResponse | null> => {
-    const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown';
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || 'unknown';
     const route = req.nextUrl.pathname;
     const key = `${ip}-${route}`;
     const now = Date.now();
@@ -134,13 +134,3 @@ async function databaseRateLimit(
   
   return null;
 }
-
-// Cleanup old entries every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  Object.keys(store).forEach(key => {
-    if (now > store[key].resetTime) {
-      delete store[key];
-    }
-  });
-}, 600000);
