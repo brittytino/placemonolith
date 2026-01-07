@@ -1,227 +1,242 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Bell, 
-  Settings, 
+import Link from 'next/link';
+import { gsap } from 'gsap';
+import {
+  Home,
+  Users,
+  Building2,
+  Briefcase,
+  ShieldCheck,
+  Lightbulb,
+  TrendingUp,
+  User,
   LogOut,
   Menu,
   X,
-  GraduationCap,
-  FileText,
-  UsersRound,
-  FolderKanban
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/lib/hooks/useAuth';
-
-interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  roles: string[];
-}
-
-const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/admin-dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN'] },
-  { label: 'Dashboard', href: '/class-rep-dashboard', icon: LayoutDashboard, roles: ['CLASS_REP'] },
-  { label: 'Dashboard', href: '/student-dashboard', icon: LayoutDashboard, roles: ['STUDENT'] },
-  { label: 'Students', href: '/admin-students', icon: Users, roles: ['SUPER_ADMIN'] },
-  { label: 'Announcements', href: '/announcements', icon: Bell, roles: ['SUPER_ADMIN', 'CLASS_REP', 'STUDENT'] },
-  { label: 'Groups', href: '/groups', icon: UsersRound, roles: ['SUPER_ADMIN', 'CLASS_REP', 'STUDENT'] },
-  { label: 'Projects', href: '/projects', icon: FolderKanban, roles: ['SUPER_ADMIN', 'CLASS_REP', 'STUDENT'] },
-  { label: 'Documents', href: '/documents', icon: FileText, roles: ['SUPER_ADMIN', 'CLASS_REP', 'STUDENT'] },
-  { label: 'Settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN', 'CLASS_REP', 'STUDENT'] },
-];
 
 export default function Navbar() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { data: session } = useSession();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const navRef = useRef(null);
+  const logoRef = useRef(null);
+  const linksRef = useRef<HTMLDivElement>(null);
 
-  // Don't show navbar on auth pages
-  if (pathname?.startsWith('/login') || pathname?.startsWith('/forgot-password') || pathname?.startsWith('/setup')) {
-    return null;
-  }
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.from(navRef.current, {
+        y: -100,
+        opacity: 0,
+        duration: 0.6,
+        ease: 'power3.out'
+      });
 
-  const userNavItems = navItems.filter(item => 
-    user?.role && item.roles.includes(user.role)
-  );
+      gsap.from(logoRef.current, {
+        scale: 0,
+        rotation: -360,
+        duration: 1.2,
+        ease: 'elastic.out(1, 0.5)',
+        delay: 0.2
+      });
 
-  const isActive = (href: string) => pathname === href;
+      if (linksRef.current) {
+        gsap.from(linksRef.current.children, {
+          y: -20,
+          opacity: 0,
+          duration: 0.4,
+          stagger: 0.05,
+          ease: 'power2.out',
+          delay: 0.4
+        });
+      }
+    }, navRef);
 
-  if (!user) return null;
+    return () => ctx.revert();
+  }, []);
+
+  if (!session) return null;
+
+  const isAdmin = session.user.role === 'SUPER_ADMIN' || session.user.role === 'PLACEMENT_REP';
+
+  // Secure obfuscated admin routes
+  const adminLinks = [
+    { href: '/portal/dashboard', icon: Home, label: 'Dashboard' },
+    { href: '/portal/users', icon: Users, label: 'Students' },
+    { href: '/portal/organizations', icon: Building2, label: 'Companies' },
+    { href: '/portal/campaigns', icon: Briefcase, label: 'Drives' },
+    { href: '/portal/verify', icon: ShieldCheck, label: 'Verify' },
+    { href: '/portal/metrics', icon: TrendingUp, label: 'Analytics' },
+    { href: '/insights', icon: Lightbulb, label: 'Insights' },
+  ];
+
+  const studentLinks = [
+    { href: '/student-dashboard', icon: Home, label: 'Dashboard' },
+    { href: '/insights', icon: Lightbulb, label: 'Insights' },
+    { href: '/student-profile', icon: User, label: 'Profile' },
+  ];
+
+  const navLinks = isAdmin ? adminLinks : studentLinks;
 
   return (
     <>
       {/* Desktop Navbar */}
-      <nav className="hidden md:block bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav
+        ref={navRef}
+        className="hidden lg:block fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-2xl border-b border-white/5"
+      >
+        <div className="container mx-auto px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-2 rounded-xl group-hover:scale-105 transition-transform shadow-md">
-                <GraduationCap className="h-6 w-6 text-white" />
+            <Link href={isAdmin ? '/portal/dashboard' : '/student-dashboard'} className="flex items-center gap-3 group">
+              <div
+                ref={logoRef}
+                className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/50 group-hover:shadow-purple-500/70 transition-shadow"
+              >
+                <Sparkles className="w-5 h-5 text-white" />
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-400 opacity-0 group-hover:opacity-20 transition-opacity" />
               </div>
-              <div className="hidden lg:block">
-                <h1 className="font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  PSG Placement
-                </h1>
-                <p className="text-xs text-slate-600 dark:text-slate-400">MCA Portal</p>
-              </div>
+              <span className="text-xl font-bold text-gradient">
+                SkillSphere
+              </span>
             </Link>
 
-            {/* Desktop Navigation */}
-            <div className="flex items-center gap-1">
-              {userNavItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
+            {/* Navigation Links */}
+            <div ref={linksRef} className="flex items-center gap-1">
+              {navLinks.map((link) => {
+                const isActive = pathname === link.href;
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${
-                      active
-                        ? 'bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 text-indigo-600 dark:text-indigo-400 font-medium shadow-sm'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                    }`}
+                    key={link.href}
+                    href={link.href}
+                    className={`relative flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 group ${isActive
+                        ? 'text-purple-400 bg-purple-500/10'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
                   >
-                    <Icon className={`h-4 w-4 ${active ? 'scale-110' : ''}`} />
-                    <span className="hidden lg:inline text-sm">{item.label}</span>
+                    <link.icon className="w-4 h-4" />
+                    <span className="text-sm font-medium">{link.label}</span>
+                    {isActive && (
+                      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500 to-transparent" />
+                    )}
                   </Link>
                 );
               })}
             </div>
 
-            {/* User Menu */}
-            <div className="flex items-center gap-3">
-              <div className="hidden lg:block text-right">
-                <p className="text-sm font-medium text-slate-900 dark:text-white">
-                  {user.fullName || user.registerNumber}
-                </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400 capitalize">
-                  {user.role.replace('_', ' ').toLowerCase()}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={logout}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+            {/* Profile Section */}
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-3 px-4 py-2 rounded-xl glass hover:bg-white/10 transition-all duration-300 group"
               >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden lg:inline ml-2">Logout</span>
-              </Button>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium text-white">{session.user.name}</div>
+                  <div className="text-xs text-gray-500">{session.user.role}</div>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown */}
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-64 glass rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-4 border-b border-white/5">
+                    <div className="text-sm font-medium text-white">{session.user.email}</div>
+                    <div className="text-xs text-gray-500 mt-1">{session.user.role}</div>
+                  </div>
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="text-sm font-medium">Sign Out</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Mobile Top Bar */}
-      <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 shadow-sm">
-        <div className="flex items-center justify-between px-4 h-14">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-1.5 rounded-lg shadow-md">
-              <GraduationCap className="h-5 w-5 text-white" />
+      {/* Mobile Navbar */}
+      <nav className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-black/98 backdrop-blur-2xl border-b border-white/5">
+        <div className="flex items-center justify-between px-4 h-16">
+          <Link href={isAdmin ? '/portal/dashboard' : '/student-dashboard'} className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <h1 className="font-bold text-sm bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                PSG Placement
-              </h1>
-            </div>
+            <span className="text-lg font-bold text-white">SkillSphere</span>
           </Link>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="transition-transform"
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="p-2 rounded-lg glass hover:bg-white/10 transition-colors"
           >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+            {mobileOpen ? (
+              <X className="w-6 h-6 text-white" />
+            ) : (
+              <Menu className="w-6 h-6 text-white" />
+            )}
+          </button>
         </div>
 
-        {/* Mobile Menu Dropdown */}
-        {mobileMenuOpen && (
-          <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg">
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
-              <p className="text-sm font-medium text-slate-900 dark:text-white">
-                {user.fullName || user.registerNumber}
-              </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 capitalize">
-                {user.role.replace('_', ' ').toLowerCase()}
-              </p>
-            </div>
-            <div className="py-2">
-              {userNavItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
+        {/* Mobile Menu */}
+        {mobileOpen && (
+          <div className="absolute top-16 left-0 right-0 bg-black/98 backdrop-blur-2xl border-b border-white/5 shadow-2xl">
+            <div className="p-4 space-y-1">
+              {navLinks.map((link) => {
+                const isActive = pathname === link.href;
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-                      active
-                        ? 'bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 text-indigo-600 dark:text-indigo-400 font-medium border-l-4 border-indigo-600'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                    }`}
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
+                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
+                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                      }`}
                   >
-                    <Icon className="h-5 w-5" />
-                    <span>{item.label}</span>
+                    <link.icon className="w-5 h-5" />
+                    <span className="font-medium">{link.label}</span>
                   </Link>
                 );
               })}
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  logout();
-                }}
-                className="flex items-center gap-3 px-4 py-3 w-full text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
-              >
-                <LogOut className="h-5 w-5" />
-                <span>Logout</span>
-              </button>
+
+              <div className="pt-4 mt-4 border-t border-white/5">
+                <div className="flex items-center gap-3 px-4 py-2">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">{session.user.name}</div>
+                    <div className="text-xs text-gray-500">{session.user.email}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  className="w-full flex items-center gap-3 px-4 py-3 mt-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="font-medium">Sign Out</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
-      </div>
+      </nav>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 shadow-lg safe-area-inset-bottom">
-        <div className="grid grid-cols-4 gap-1 px-2 py-2">
-          {userNavItems.slice(0, 4).map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all duration-200 relative ${
-                  active
-                    ? 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 text-indigo-600 dark:text-indigo-400 scale-105'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Icon className={`h-5 w-5 ${active ? 'scale-110' : ''}`} />
-                <span className={`text-[10px] font-medium truncate w-full text-center ${active ? 'font-semibold' : ''}`}>
-                  {item.label}
-                </span>
-                {active && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-full" />
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Bottom padding for mobile nav */}
-      <div className="md:hidden h-16" />
+      {/* Spacer */}
+      <div className="h-16" />
     </>
   );
 }

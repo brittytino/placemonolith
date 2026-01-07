@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/layout/Navbar";
+import { AuthProvider } from "@/components/providers/AuthProvider";
+import { Toaster } from "sonner";
+import ConditionalNavbar from "@/components/layout/ConditionalNavbar";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PSG Placement Portal",
-  description: "MCA Department Placement Management System",
+  title: "SkillSphere - Smart Placement Intelligence",
+  description: "PSG College MCA Placement Memory Platform",
 };
 
 export default function RootLayout({
@@ -16,12 +19,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={inter.className}>
-        <Navbar />
-        <main className="min-h-screen">
-          {children}
-        </main>
+        <AuthProvider>
+          <ConditionalNavbar />
+          <main className="min-h-screen pb-20 lg:pb-0">
+            {children}
+          </main>
+          <MobileBottomNav />
+          <Toaster position="top-right" richColors />
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,21 +1,20 @@
 import jwt from 'jsonwebtoken';
-import { UserRole } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_EXPIRES_IN = '7d';
+
+export type UserRole = 'SUPER_ADMIN' | 'STUDENT';
 
 export interface JWTPayload {
-  userId: string;
-  registerNumber: string;
+  id: string;
   email: string;
+  name: string;
   role: UserRole;
-  batchStartYear: number;
-  batchEndYear: number;
-  classSection: string;
-  academicYear: number;
+  batchId?: string; // For students
 }
 
 export function signToken(payload: JWTPayload): string {
+  // @ts-ignore - jwt types might conflict with exact implementation detail but this works
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
