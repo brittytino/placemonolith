@@ -83,7 +83,7 @@ export default function StudentTable({ onUpdate }: StudentTableProps) {
 
   const handleRoleChange = async (studentId: string, newRole: string) => {
     try {
-      await axios.patch(`/api/admin/students/${studentId}/role`, { role: newRole });
+      await axios.patch(`/api/portal/students/${studentId}/role`, { role: newRole });
       fetchStudents();
       if (onUpdate) onUpdate();
     } catch (error) {

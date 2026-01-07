@@ -31,7 +31,7 @@ export default function AdminDashboard() {
 
     const fetchBatches = async () => {
         try {
-            const res = await axios.get('/api/admin/batches');
+            const res = await axios.get('/api/portal/batches');
             if (res.data.success) {
                 setBatches(res.data.data);
             }

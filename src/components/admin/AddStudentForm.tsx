@@ -55,7 +55,7 @@ export default function AddStudentForm({ batches, groups, onSuccess }: AddStuden
     setSuccess('');
 
     try {
-      const response = await fetch('/api/admin/students', {
+      const response = await fetch('/api/portal/students', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

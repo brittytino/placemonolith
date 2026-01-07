@@ -3,13 +3,14 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Home, UserCircle, Lightbulb, TrendingUp, Users, Building2, Briefcase, ShieldCheck } from 'lucide-react';
+import { Home, UserCircle, Lightbulb, TrendingUp, ShieldCheck } from 'lucide-react';
 
 export default function MobileBottomNav() {
     const pathname = usePathname();
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
 
-    if (!session) return null;
+    // Don't render if not authenticated or loading
+    if (status === 'loading' || !session?.user) return null;
 
     const isStudent = session.user.role === 'STUDENT' || session.user.role === 'CLASS_REP';
     const isAdmin = session.user.role === 'SUPER_ADMIN' || session.user.role === 'PLACEMENT_REP';

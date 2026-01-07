@@ -29,7 +29,7 @@ export default function AdminDrivesPage() {
 
     const fetchDrives = async () => {
         try {
-            const res = await axios.get('/api/admin/drives');
+            const res = await axios.get('/api/portal/drives');
             if (res.data.success) {
                 setDrives(res.data.data);
             }

@@ -33,7 +33,7 @@ export function AddCompanyDialog({ onSuccess }: AddCompanyDialogProps) {
         setLoading(true);
 
         try {
-            const res = await axios.post('/api/admin/companies', {
+            const res = await axios.post('/api/portal/companies', {
                 name,
                 domain,
                 website

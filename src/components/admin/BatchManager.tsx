@@ -32,7 +32,7 @@ export default function BatchManager({ onUpdate }: BatchManagerProps) {
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/admin/groups');
+      const response = await axios.get('/api/portal/groups');
       setGroups(response.data.data || []);
     } catch (error) {
       console.error('Failed to fetch groups:', error);
@@ -49,7 +49,7 @@ export default function BatchManager({ onUpdate }: BatchManagerProps) {
 
     try {
       setCreating(true);
-      await axios.post('/api/admin/groups', {
+      await axios.post('/api/portal/groups', {
         name: newGroupName,
         description: newGroupDesc,
       });
@@ -68,7 +68,7 @@ export default function BatchManager({ onUpdate }: BatchManagerProps) {
     if (!confirm('Are you sure you want to delete this group?')) return;
 
     try {
-      await axios.delete(`/api/admin/groups/${id}`);
+      await axios.delete(`/api/portal/groups/${id}`);
       fetchGroups();
       if (onUpdate) onUpdate();
     } catch (error: any) {

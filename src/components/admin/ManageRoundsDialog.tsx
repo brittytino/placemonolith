@@ -43,7 +43,7 @@ export function ManageRoundsDialog({ driveId, driveRole }: ManageRoundsDialogPro
     const fetchRounds = async () => {
         try {
             setLoading(true);
-            const res = await axios.get(`/api/admin/rounds?driveId=${driveId}`);
+            const res = await axios.get(`/api/portal/rounds?driveId=${driveId}`);
             if (res.data.success) {
                 setRounds(res.data.data);
             }
@@ -59,7 +59,7 @@ export function ManageRoundsDialog({ driveId, driveRole }: ManageRoundsDialogPro
         setAdding(true);
         try {
             const orderIndex = rounds.length + 1;
-            await axios.post('/api/admin/rounds', {
+            await axios.post('/api/portal/rounds', {
                 driveId,
                 name: newRoundName,
                 orderIndex
@@ -77,7 +77,7 @@ export function ManageRoundsDialog({ driveId, driveRole }: ManageRoundsDialogPro
     const handleDeleteRound = async (id: string) => {
         if (!confirm('Delete this round? Student data might be lost.')) return;
         try {
-            await axios.delete(`/api/admin/rounds?roundId=${id}`);
+            await axios.delete(`/api/portal/rounds?roundId=${id}`);
             fetchRounds();
             toast.success('Round deleted');
         } catch (e) {

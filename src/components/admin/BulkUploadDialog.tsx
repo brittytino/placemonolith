@@ -34,7 +34,7 @@ export function BulkUploadDialog({ onSuccess }: BulkUploadDialogProps) {
         formData.append('file', file);
 
         try {
-            const res = await axios.post('/api/admin/bulk-upload', formData, {
+            const res = await axios.post('/api/portal/bulk-upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 

@@ -30,7 +30,7 @@ export default function AdminStudentsPage() {
 
     const fetchStudents = async () => {
         try {
-            const res = await axios.get('/api/admin/students');
+            const res = await axios.get('/api/portal/students');
             if (res.data.success) {
                 setStudents(res.data.data);
             }

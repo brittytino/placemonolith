@@ -24,7 +24,7 @@ export default function AdminCompaniesPage() {
 
     const fetchCompanies = async () => {
         try {
-            const res = await axios.get('/api/admin/companies');
+            const res = await axios.get('/api/portal/companies');
             if (res.data.success) {
                 setCompanies(res.data.data);
             }

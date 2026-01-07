@@ -33,7 +33,7 @@ export function AddDriveDialog({ onSuccess }: AddDriveDialogProps) {
 
     useEffect(() => {
         if (open) {
-            axios.get('/api/admin/companies').then(res => {
+            axios.get('/api/portal/companies').then(res => {
                 if (res.data.success) setCompanies(res.data.data);
             });
         }
@@ -44,7 +44,7 @@ export function AddDriveDialog({ onSuccess }: AddDriveDialogProps) {
         setLoading(true);
 
         try {
-            const res = await axios.post('/api/admin/drives', {
+            const res = await axios.post('/api/portal/drives', {
                 role,
                 companyId,
                 package: pkg,

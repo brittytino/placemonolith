@@ -21,7 +21,7 @@ export default function AnalyticsPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await axios.get('/api/admin/analytics');
+                const res = await axios.get('/api/portal/analytics');
                 if (res.data.success) {
                     setData(res.data.data);
                 }

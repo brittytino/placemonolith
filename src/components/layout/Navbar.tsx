@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 export default function Navbar() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -31,38 +31,41 @@ export default function Navbar() {
   const linksRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.from(navRef.current, {
-        y: -100,
-        opacity: 0,
-        duration: 0.6,
-        ease: 'power3.out'
-      });
-
-      gsap.from(logoRef.current, {
-        scale: 0,
-        rotation: -360,
-        duration: 1.2,
-        ease: 'elastic.out(1, 0.5)',
-        delay: 0.2
-      });
-
-      if (linksRef.current) {
-        gsap.from(linksRef.current.children, {
-          y: -20,
+    if (status === 'authenticated') {
+      const ctx = gsap.context(() => {
+        gsap.from(navRef.current, {
+          y: -100,
           opacity: 0,
-          duration: 0.4,
-          stagger: 0.05,
-          ease: 'power2.out',
-          delay: 0.4
+          duration: 0.6,
+          ease: 'power3.out'
         });
-      }
-    }, navRef);
 
-    return () => ctx.revert();
-  }, []);
+        gsap.from(logoRef.current, {
+          scale: 0,
+          rotation: -360,
+          duration: 1.2,
+          ease: 'elastic.out(1, 0.5)',
+          delay: 0.2
+        });
 
-  if (!session) return null;
+        if (linksRef.current) {
+          gsap.from(linksRef.current.children, {
+            y: -20,
+            opacity: 0,
+            duration: 0.4,
+            stagger: 0.05,
+            ease: 'power2.out',
+            delay: 0.4
+          });
+        }
+      }, navRef);
+
+      return () => ctx.revert();
+    }
+  }, [status]);
+
+  // Don't render if not authenticated or still loading
+  if (status === 'loading' || !session?.user) return null;
 
   const isAdmin = session.user.role === 'SUPER_ADMIN' || session.user.role === 'PLACEMENT_REP';
 
