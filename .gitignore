@@ -59,11 +59,63 @@ functions/firebase-debug.log
 functions/firebase-debug.log.*
 lib/firebase_options.dart
 
+# Node.js / npm
+node_modules/
+package-lock.json
+yarn.lock
+npm-debug.log
+.npm
+dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE & Editor
+*.swp
+*.swo
+*~
+.project
+.classpath
+*.c9/
+*.el
+*.iml
+*.ipr
+*.iws
+*.sublime-workspace
+
+# OS files
+Thumbs.db
+.thumbs.db
+
+# Build outputs
+*.dart
+!pubspec.lock
+!lib/**/*.dart
+
 # Scripts & Secrets
 scripts/node_modules/
 scripts/service-account.json
+
 # Block all instances of these across the repo
 **/google-services.json
 **/GoogleService-Info.plist
 **/service-account.json
 
+# Dependencies
+**/.pub/
+.packages
+
+# Generated files
+**/.generated/
+**/*.g.dart
+lib/generated_plugin_registrant.dart
+
+# Misc
+.DS_Store
+.AppleDouble
+.LSOverride
+*.zip
+*.tar.gz
+*.rar

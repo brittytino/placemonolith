@@ -10,6 +10,7 @@ class UserProvider with ChangeNotifier {
 
   AppUser? _currentUser;
   bool _isLoading = true;
+  bool _initComplete = false;
 
   UserProvider({required AuthService authService, required UserRepository userRepo})
       : _authService = authService,
@@ -19,6 +20,7 @@ class UserProvider with ChangeNotifier {
 
   AppUser? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
+  bool get initComplete => _initComplete;
 
   bool get isTeamLeader => _currentUser?.isTeamLeader ?? false;
   bool get isCoordinator => _currentUser?.isCoordinator ?? false;
@@ -26,17 +28,42 @@ class UserProvider with ChangeNotifier {
 
   void _init() {
     debugPrint('[UserProvider] Initializing...');
-    
-    // Set a timeout to ensure loading state clears
-    Future.delayed(const Duration(seconds: 3), () {
-      if (_isLoading) {
-        debugPrint('[UserProvider] Timeout fired - clearing loading state');
-        _isLoading = false;
-        notifyListeners();
-      }
-    });
+    _checkAuthStateOnce();
+  }
 
-    // Listen to auth state changes
+  Future<void> _checkAuthStateOnce() async {
+    try {
+      // Get current Firebase user immediately
+      final firebaseUser = _authService.currentUser;
+      debugPrint('[UserProvider] Current Firebase user: ${firebaseUser?.email}');
+
+      if (firebaseUser != null) {
+        try {
+          _currentUser = await _userRepo.ensureUserDocument(firebaseUser.uid, firebaseUser.email!);
+          debugPrint('[UserProvider] User loaded: ${_currentUser?.email}');
+        } catch (e) {
+          debugPrint('[UserProvider] Error fetching user: $e');
+          await _authService.signOut();
+          _currentUser = null;
+        }
+      } else {
+        debugPrint('[UserProvider] No user signed in');
+        _currentUser = null;
+      }
+    } catch (e) {
+      debugPrint('[UserProvider] Error in initial check: $e');
+      _currentUser = null;
+    } finally {
+      _isLoading = false;
+      _initComplete = true;
+      notifyListeners();
+      
+      // Now listen for ongoing auth state changes
+      _listenToAuthStateChanges();
+    }
+  }
+
+  void _listenToAuthStateChanges() {
     _authService.authStateChanges.listen(
       (User? firebaseUser) async {
         debugPrint('[UserProvider] Auth state changed: ${firebaseUser?.email}');
@@ -53,13 +80,10 @@ class UserProvider with ChangeNotifier {
           debugPrint('[UserProvider] User signed out');
           _currentUser = null;
         }
-        _isLoading = false;
         notifyListeners();
       },
       onError: (e) {
         debugPrint('[UserProvider] Auth stream error: $e');
-        _isLoading = false;
-        notifyListeners();
       },
     );
   }
