@@ -1,0 +1,38 @@
+[
+  {
+    "email": "25mx354@psgtech.ac.in",
+    "regNo": "25MX354",
+    "name": "Release Engineer (You)",
+    "teamId": "TEAM_01",
+    "roles": {
+      "isStudent": true,
+      "isTeamLeader": true,
+      "isCoordinator": true,
+      "isPlacementRep": true
+    }
+  },
+  {
+    "email": "25mx101@psgtech.ac.in",
+    "regNo": "25MX101",
+    "name": "Member One",
+    "teamId": "TEAM_01",
+    "roles": {
+      "isStudent": true,
+      "isTeamLeader": false,
+      "isCoordinator": false,
+      "isPlacementRep": false
+    }
+  },
+  {
+    "email": "25mx102@psgtech.ac.in",
+    "regNo": "25MX102",
+    "name": "Leader Team 2",
+    "teamId": "TEAM_02",
+    "roles": {
+      "isStudent": true,
+      "isTeamLeader": true,
+      "isCoordinator": false,
+      "isPlacementRep": false
+    }
+  }
+]

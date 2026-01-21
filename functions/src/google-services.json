@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "750436579592",
+    "project_id": "psgmx-flutter",
+    "storage_bucket": "psgmx-flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:750436579592:android:1fafe5dc1d4edf9b9f54bd",
+        "android_client_info": {
+          "package_name": "in.psgtech.mca.placement"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDrwnOcl-UzEAZJIHkJXDRfOxwMUYnO-JU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

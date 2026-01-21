@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    // Note: get() costs 1 read. Acceptable for this scale (120 users).
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isCoordinator() {
+      return getUserData().roles.isCoordinator == true;
+    }
+
+    function isRep() {
+      return getUserData().roles.isPlacementRep == true;
+    }
+
+    function isLeader() {
+      return getUserData().roles.isTeamLeader == true;
+    }
+    
+    // --- Collections ---
+
+    // USERS: Read-only for self/hierarchy
+    // Critical: No public write.
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if false; 
+    }
+    
+    // WHITELIST: Used for bootstrapping. 
+    // Secure: Users can only read their own entry to hydrate profile.
+    match /whitelist/{email} {
+      allow read: if request.auth.token.email == email;
+      allow write: if false;
+    }
+
+    // TEAMS: Static mapping. Public read for auth users.
+    match /teams/{teamId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // DAILY TASKS: Coord writes, everyone reads.
+    match /daily_tasks/{date} {
+      allow read: if request.auth != null;
+      allow write: if isCoordinator();
+    }
+
+    // ATTENDANCE SUBMISSIONS (The "Lock" Record)
+    match /attendance_submissions/{docId} {
+      // ID Format: YYYY-MM-DD_TEAMID
+      
+      allow read: if isCoordinator() || isRep() || 
+                 (isLeader() && resource.data.teamId == getUserData().teamId);
+      
+      // CREATE: Only Leaders, only for their team, only if not locked
+      // Relies on "One Submission per Day" enforced by ID uniqueness and create-only
+      allow create: if isLeader() 
+                    && request.resource.data.teamId == getUserData().teamId
+                    && request.resource.data.submittedBy == request.auth.uid
+                    && request.resource.data.isLocked == false;
+      
+      // UPDATE: Only Rep (for unlocking) or System (via Admin SDK/Functions)
+      allow update: if isRep();
+      
+      allow delete: if false;
+    }
+
+    // ATTENDANCE RECORDS (Individual status)
+    match /attendance_records/{docId} {
+      // ID Format: YYYY-MM-DD_REGNO
+      
+      // READ scopes
+      allow read: if request.auth.uid == resource.data.studentUid // Self
+                  || isCoordinator() // All
+                  || isRep() // All
+                  || (isLeader() && resource.data.teamId == getUserData().teamId); // Team
+      
+      // CREATE: Leader can create records for their team
+      allow create: if isLeader()
+                    && request.resource.data.teamId == getUserData().teamId
+                    && request.resource.data.markedBy == request.auth.uid;
+                    
+      // UPDATE: ONLY Rep can modify existing records (God Mode)
+      // Leader cannot edit after creation (enforced by create-only for Leader)
+      allow update: if isRep(); 
+      
+      allow delete: if false;
+    }
+
+    // AUDIT LOGS
+    match /audit_logs/{logId} {
+      allow read: if isCoordinator() || isRep();
+      // CREATE: Only Rep (when overriding)
+      // Hardening: Must have a reason provided.
+      allow create: if isRep() 
+                    && request.resource.data.action == 'OVERRIDE_ATTENDANCE'
+                    && request.resource.data.performedBy == request.auth.uid
+                    && request.resource.data.reason is string
+                    && request.resource.data.reason.size() > 0;
+      
+      // Immutable
+      allow update, delete: if false;
+    }
+  }
+}
