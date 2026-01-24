@@ -1,263 +1,107 @@
-# PSG MCA Placement Prep App
+# PSGMX - Placement Prep App
 
-A Flutter app for PSG Technology MCA placement batch (2025-2027) with attendance tracking, daily tasks, and role-based access.
+**A comprehensive placement preparation companion for PSG Technology MCA batch (2025-2027).**
 
-**Author**: [Tino Britty J](https://github.com/brittytino) - Placement Representative  
-**Purpose**: Built for convenience during placement season 🎓
+Built with  using **Flutter** and **Supabase**.
 
-![Flutter](https://img.shields.io/badge/Flutter-3.2+-blue) ![Firebase](https://img.shields.io/badge/Firebase-Free%20Tier-orange) ![License](https://img.shields.io/badge/License-MIT-green)
+![Flutter](https://img.shields.io/badge/Flutter-3.27+-02569B?logo=flutter&logoColor=white) 
+![Supabase](https://img.shields.io/badge/Supabase-Production-3ECF8E?logo=supabase&logoColor=white)
+![Dart](https://img.shields.io/badge/Dart-3.0+-0175C2?logo=dart&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-## What It Does
+---
 
-- 📧 Email authentication (@psgtech.ac.in only)
-- 📋 Daily attendance tracking with 8 PM hard lock
-- 💡 LeetCode + CS topics with daily motivation quotes
-- 👥 Role-based access (Student, Team Leader, Coordinator, Rep)
-- 📱 Works on mobile, tablet, desktop
-- ⚡ Free Firebase tier (no paid features needed)
+##  Features
 
-## Quick Setup
+###  For Students
+- **Daily Attendance**: QR-code style or manual team leader marking.
+- **Placement Tasks**: Daily LeetCode challenges and Core CS topic prep.
+- **Announcements**: Real-time notifications for placement drives and deadlines.
+- **Analytics**: Track your attendance and LeetCode solving streaks.
+- **Personalized Dashboard**: View your specific status and upcoming tasks.
 
-### 1. Clone & Install
-```bash
-git clone https://github.com/brittytino/psgmx-flutter.git
-cd psgmx-flutter
-flutter pub get
-```
+###  For Team Leaders & Coordinators
+- **Attendance Management**: Mark attendance for your assigned team members.
+- **Task Verification**: Tracking completion of assigned placement work.
+- **Broadcast System**: Send announcements to all students or specific groups.
+- **Reports**: View batch-wide statistics (Simulated Admin/Rep views).
 
-### 2. Firebase Setup
-- Download `google-services.json` from [Firebase Console](https://console.firebase.google.com)
-- Save to `android/app/google-services.json`
-- Deploy rules: `firebase deploy --only firestore:rules`
+---
 
-### 3. Seed Test Data
-```bash
-cd scripts
-node seed_users.js
-```
+##  Tech Stack
 
-### 4. Run
-```bash
-flutter run
-```
+*   **Frontend**: Flutter (Mobile - Android & iOS)
+*   **Backend & DB**: Supabase (PostgreSQL, Auth, Realtime)
+*   **State Management**: Provider
+*   **Architecture**: Service-Repository Pattern with Feature-first folder structure.
 
-## Tech Stack
+---
 
-| Component | Tech |
-|-----------|------|
-| Frontend | Flutter 3.2+ + Material 3 |
-| State | Provider + GoRouter |
-| Backend | Firebase Auth + Firestore |
-| Architecture | MVVM |
-
-## Login Test Accounts
-
-After seeding, use any email from `scripts/users_master.json`:
-```
-Email: student@psgtech.ac.in
-(Email link sent to console)
-```
-
-## Database Schema
-
-| Collection | Purpose |
-|-----------|---------|
-| `users/` | Student profiles with roles |
-| `attendance_submissions/` | Daily team attendance |
-| `attendance_records/` | Individual records |
-| `daily_tasks/` | LeetCode + CS topics |
-| `audit_logs/` | Admin overrides |
-
-## Key Features
-
-### Attendance Lock
-- Hard stop at 8 PM (server-side via Firestore Rules)
-- Students can submit before 8 PM only
-- Team leaders aggregate submissions
-
-### Roles
-- **Student**: View & submit attendance, view tasks
-- **Team Leader**: Submit team attendance
-- **Coordinator**: Full access, manage users
-- **Placement Rep**: Override attendance, audit logs
-
-### Daily Tasks
-- LeetCode problem + link
-- CS topic + description
-- Motivation quote
-
-## Build & Deploy
-
-### Build for Devices
-```bash
-# Android
-flutter build apk --debug
-flutter build appbundle  # For Play Store
-
-# iOS
-flutter build ios
-```
-
-### Deploy Backend
-```bash
-# Firestore rules only (free tier)
-firebase deploy --only firestore:rules
-
-# With functions (requires Blaze plan)
-firebase deploy --only firestore:rules,functions
-```
-
-## Development
-
-```bash
-# Run tests
-flutter test
-
-# Check code quality
-dart analyze
-
-# Format code
-dart format lib/
-```
-
-## File Structure
+##  Project Structure
 
 ```
 lib/
-├── main.dart              # App initialization
-├── core/
-│   ├── app_router.dart   # Navigation routes
-│   └── theme/            # Material 3 theme
-├── models/               # Data models
-├── providers/            # State management
-├── services/             # Business logic
-└── ui/                   # UI screens
-
-functions/src/
-├── index.ts              # Auth triggers
-
-scripts/
-└── seed_users.js         # Populate test data
+ core/            # App-wide configurations (Theme, Constants, Routes)
+ models/          # Data models (AppUser, Announcement, LeetCodeStats)
+ providers/       # State management (UserProvider, AnnouncementProvider)
+ services/        # External API calls (Supabase, Notifications, Quotes)
+ ui/              # Screens and Widgets
+    attendance/  # Attendance marking & viewing
+    home/        # Dashboard (Role-adaptive)
+    profile/     # User profile & Settings
+    tasks/       # Daily tasks & Challenges
+ main.dart        # Entry point
 ```
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| "User not found" on login | Run `node scripts/seed_users.js` |
-| Can't submit after 8 PM | Firestore rule intentionally blocks it |
-| Firebase not initializing | Check `google-services.json` is in right place |
-| Build fails | Run `flutter clean && flutter pub get` |
-
-## Contributing
-
-1. Fork repo
-2. Create feature branch: `git checkout -b feature/xyz`
-3. Test thoroughly
-4. Submit PR
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-## License
-
-MIT - see [LICENSE](LICENSE)
-
-## Code of Conduct
-
-Be respectful to all contributors. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for updates and roadmap.
 
 ---
 
-**Built for PSG Technology MCA Placement Batch 2025-2027**
+##  Role-Based Access Control
 
-Questions? Open an [issue](https://github.com/brittytino/psgmx-flutter/issues) or [discussion](https://github.com/brittytino/psgmx-flutter/discussions)
+The app strictly enforces roles via Supabase RLS and App Logic:
 
+1.  **Student**: View only own data, tasks, and public announcements.
+2.  **Team Leader**: Can mark attendance for their specific team.
+3.  **Placement Rep**: Full access to batch data, create announcements, manage tasks.
+4.  **Coordinator**: View reports and assist Reps.
 
-## Features
+*(Note: Admin features in the current build may be simulated for demonstration via the Profile > Dev Tools section)*
 
-- **Email Link Authentication** - Secure @psgtech.ac.in authentication
-- **Role-Based Access Control** - Student, Team Leader, Coordinator, Placement Rep roles
-- **Attendance Tracking** - Daily attendance with 8 PM hard lock (enforced by Firestore Rules)
-- **Daily Tasks** - LeetCode problems and CS topics with motivation quotes
-- **Responsive UI** - Material 3 design with adaptive layout (mobile/tablet/desktop)
-- **Offline Ready** - Works with poor connectivity
-- **Free Tier** - Designed to run on Firebase Free plan
+---
 
-## Architecture
-
-### Tech Stack
-- **Frontend**: Flutter 3.2+, Material 3, Provider state management, GoRouter navigation
-- **Backend**: Firebase Auth (email link), Firestore database
-- **Infrastructure**: Free tier architecture (no scheduled functions)
-
-### Security Model
-- Firestore Rules enforce role-based access
-- 8 PM attendance lock enforced server-side
-- Email domain validation (@psgtech.ac.in only)
-- Whitelist-based user onboarding
-
-## Quick Start
+##  Setup & Installation
 
 ### Prerequisites
-- Flutter SDK 3.2 or later
-- Android 12+ or iOS 11+
-- Firebase project (Free plan)
+*   Flutter SDK (3.27.0 or later)
+*   Supabase Account (Free Tier)
 
-### Installation
-
-1. **Clone and Setup**
-   ```bash
-   git clone https://github.com/yourusername/psgmx-flutter.git
-   cd psgmx-flutter
-   flutter pub get
-   ```
-
-2. **Firebase Configuration**
-   - Download `google-services.json` from Firebase Console
-   - Place in `android/app/`
-
-3. **Seed Initial Data**
-   ```bash
-   cd scripts
-   node seed_users.js
-   ```
-
-4. **Run**
-   ```bash
-   flutter run
-   ```
-
-## Project Structure
-
-```
-├── lib/
-│   ├── main.dart
-│   ├── core/app_router.dart
-│   ├── models/
-│   ├── providers/
-│   ├── services/
-│   └── ui/
-├── functions/src/index.ts
-├── firestore.rules
-└── scripts/seed_users.js
+### 1. Clone the Repository
+```bash
+git clone https://github.com/brittytino/psgmx-flutter.git
+cd psgmx-flutter
 ```
 
-## Contributing
+### 2. Install Dependencies
+```bash
+flutter pub get
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+### 3. Build the App
+**Android:**
+```bash
+flutter build apk --release
+```
 
-## Code of Conduct
-
-See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
-
-## License
-
-MIT License - see [LICENSE](LICENSE).
+**iOS:**
+```bash
+flutter build ios --release --no-codesign
+```
 
 ---
 
-**Built with ❤️ for PSG Technology Students**
+##  Releases
+
+Builds are automatically generated via GitHub Actions. Check the **[Releases](../../releases)** page for the latest APKs.
+
+---
+
+** 2026 PSG Placement Team**
