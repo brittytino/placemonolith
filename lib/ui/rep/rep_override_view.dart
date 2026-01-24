@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../providers/user_provider.dart';
+import '../../services/supabase_db_service.dart';
 
 class RepOverrideView extends StatefulWidget {
   const RepOverrideView({super.key});
@@ -19,7 +21,12 @@ class _RepOverrideViewState extends State<RepOverrideView> {
     final regNo = _regNoCtrl.text.trim();
     final reason = _reasonCtrl.text.trim();
     if (regNo.isEmpty || reason.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reg No and Reason required')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Reg No and Reason required'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        )
+      );
       return;
     }
 
@@ -29,16 +36,22 @@ class _RepOverrideViewState extends State<RepOverrideView> {
     final dateStr = _selectedDate.toIso8601String().split('T')[0];
 
     try {
-      // Toggle to present (assuming override usually means fixing absent) or we should have a switch.
-      // Let's ask user.
       bool? newStatus = await showDialog<bool>(
         context: context, 
         builder: (c) => AlertDialog(
-          title: const Text("Set Status"),
-          content: const Text("What should the new status be?"),
+          icon: const Icon(Icons.edit_note, size: 32),
+          title: const Text("Set New Status"),
+          content: Text("Override attendance for $regNo on $dateStr?"),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text("ABSENT")),
-            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text("PRESENT")),
+            TextButton(
+              onPressed: () => Navigator.pop(c, false), 
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text("MARK ABSENT")
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true), 
+              child: const Text("MARK PRESENT")
+            ),
           ],
         )
       );
@@ -51,13 +64,26 @@ class _RepOverrideViewState extends State<RepOverrideView> {
       await firestore.overrideAttendance(regNo, dateStr, newStatus, user!.uid, reason);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Override Logged & Updated')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Override Logged Successfully'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          )
+        );
         _regNoCtrl.clear();
         _reasonCtrl.clear();
       }
 
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error
+          )
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -65,50 +91,104 @@ class _RepOverrideViewState extends State<RepOverrideView> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final dateFormat = DateFormat('yyyy-MM-dd');
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("GOD MODE: Override Attendance", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Row(
-             children: [
-               Text("Date: ${_selectedDate.toLocal().toString().split(' ')[0]}"),
-               const Spacer(),
-               TextButton(onPressed: () async {
-                 final d = await showDatePicker(context: context, firstDate: DateTime(2025), lastDate: DateTime(2030), initialDate: _selectedDate);
-                 if (d != null) setState(() => _selectedDate = d);
-               }, child: const Text("Change Date"))
-             ],
-           ),
-           const SizedBox(height: 16),
-          TextField(
-            controller: _regNoCtrl,
-            decoration: const InputDecoration(labelText: 'Student Reg No (ex: 25MX123)', border: OutlineInputBorder()),
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colorScheme.error)
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: colorScheme.onErrorContainer, size: 32),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Override Mode", style: TextStyle(color: colorScheme.onErrorContainer, fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text("Actions are logged in audit trail.", style: TextStyle(color: colorScheme.onErrorContainer)),
+                        ],
+                      ),
+                    )
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Card(
+                elevation: 0,
+                color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                child: ListTile(
+                  leading: const Icon(Icons.event),
+                  title: const Text("Target Date"),
+                  subtitle: Text(dateFormat.format(_selectedDate)),
+                  trailing: TextButton(
+                    child: const Text("Change"),
+                    onPressed: () async {
+                      final d = await showDatePicker(
+                         context: context, 
+                         firstDate: DateTime(2025), 
+                         lastDate: DateTime(2030), 
+                         initialDate: _selectedDate
+                      );
+                      if (d != null) setState(() => _selectedDate = d);
+                    },
+                  ),
+                ),
+              ),
+               const SizedBox(height: 16),
+              TextField(
+                controller: _regNoCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Student Reg No', 
+                  hintText: 'e.g. 25MX123',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.person_search),
+                  filled: true,
+                  fillColor: colorScheme.surface,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _reasonCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Reason for Override', 
+                  hintText: 'Required for audit logs',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.comment),
+                  filled: true,
+                  fillColor: colorScheme.surface,
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 32),
+               SizedBox(
+                   width: double.infinity,
+                   height: 56,
+                   child: FilledButton.icon(
+                     style: FilledButton.styleFrom(
+                       backgroundColor: colorScheme.error,
+                       foregroundColor: colorScheme.onError,
+                     ),
+                     onPressed: _isLoading ? null : _submit,
+                     icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.save_as),
+                     label: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("UPDATE ATTENDANCE"),
+                   ),
+                 )
+            ],
           ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _reasonCtrl,
-            decoration: const InputDecoration(labelText: 'Reason (MANDATORY)', border: OutlineInputBorder()),
-            maxLines: 2,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Note: This action is permanently logged in the Audit Trail.",
-            style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
-          ),
-          const SizedBox(height: 24),
-           SizedBox(
-               width: double.infinity,
-               height: 50,
-               child: FilledButton(
-                 style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                 onPressed: _isLoading ? null : _submit,
-                 child: _isLoading ? const CircularProgressIndicator() : const Text("Update Record"),
-               ),
-             )
-        ],
+        ),
       ),
     );
   }

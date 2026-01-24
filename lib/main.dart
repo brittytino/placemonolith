@@ -6,6 +6,7 @@ import 'core/app_router.dart';
 import 'providers/user_provider.dart';
 import 'services/auth_service.dart';
 import 'services/supabase_service.dart';
+import 'services/supabase_db_service.dart';
 import 'services/quote_service.dart';
 import 'core/theme/app_theme.dart';
 
@@ -27,12 +28,14 @@ class PsgMxApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // Services
     final supabaseService = SupabaseService();
+    final supabaseDbService = SupabaseDbService();
     final authService = AuthService(supabaseService);
     final quoteService = QuoteService();
 
     return MultiProvider(
       providers: [
         Provider<SupabaseService>.value(value: supabaseService),
+        Provider<SupabaseDbService>.value(value: supabaseDbService),
         Provider<AuthService>.value(value: authService),
         Provider<QuoteService>.value(value: quoteService),
         ChangeNotifierProvider(

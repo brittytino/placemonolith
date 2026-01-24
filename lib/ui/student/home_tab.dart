@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/quote_service.dart';
-import '../../models/task_attendance.dart';
+import '../../services/supabase_db_service.dart';
 import '../../core/theme/layout_tokens.dart';
 import '../../ui/widgets/content_card.dart';
 import '../../ui/widgets/loading_state.dart';
@@ -28,83 +28,122 @@ class HomeTab extends StatelessWidget {
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const SizedBox.shrink();
               final data = snapshot.data!;
-              return ContentCard(
+              return Card(
+                elevation: 0,
                 color: Theme.of(context).colorScheme.tertiaryContainer,
-                child: Column(
-                  children: [
-                    Text(
-                      '"${data['text']}"',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontStyle: FontStyle.italic,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Text(
+                        '"${data['text']}"',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontStyle: FontStyle.italic,
+                          color: Theme.of(context).colorScheme.onTertiaryContainer
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      '- ${data['author']}',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 8),
+                      Text(
+                        '- ${data['author']}',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onTertiaryContainer.withOpacity(0.8)
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: 24),
           Text(
-            "Today's Task", 
-            style: Theme.of(context).textTheme.headlineMedium
+            "Today's Challenge", 
+            style: Theme.of(context).textTheme.headlineSmall
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: 16),
           
-          StreamBuilder<DailyTask?>(
+          StreamBuilder<CompositeTask?>(
             stream: firestore.getDailyTask(today),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const LoadingState(message: "Fetching daily task...");
+                return const Center(child: CircularProgressIndicator());
               }
               final task = snapshot.data;
               if (task == null) {
-                return const ContentCard(
-                  child: EmptyState(
-                    title: "No Task Yet",
-                    icon: Icons.task_alt,
-                    message: "The coordinator hasn't published today's task. Check back later.",
+                return Card(
+                  elevation: 0,
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  child: const Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Column(
+                      children: [
+                        Icon(Icons.coffee, size: 48, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text("No tasks published yet today."),
+                      ],
+                    ),
                   ),
                 );
               }
 
               return Column(
                 children: [
-                   ContentCard(
-                    title: "LeetCode Problem", 
-                    onTap: () => launchUrl(Uri.parse(task.leetcodeUrl)),
-                     trailing: const Icon(Icons.open_in_new),
-                    child: Row(
-                      children: [
-                        Icon(Icons.code, color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(child: Text("Click to open problem", style: Theme.of(context).textTheme.bodyLarge)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  ContentCard(
-                    title: "CS Topic: ${task.csTopic}",
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                   Card(
+                    elevation: 0,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    clipBehavior: Clip.hardEdge,
+                    child: InkWell(
+                      onTap: () => launchUrl(Uri.parse(task.leetcodeUrl)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
                           children: [
-                            Icon(Icons.menu_book, color: Theme.of(context).colorScheme.secondary),
-                            const SizedBox(width: AppSpacing.md),
-                            Text("Topic Details", style: Theme.of(context).textTheme.titleSmall),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(12)
+                              ),
+                              child: Icon(Icons.code, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("LeetCode Problem", style: Theme.of(context).textTheme.labelMedium),
+                                  Text("Solve Challenge", style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                                ],
+                              ) 
+                            ),
+                            const Icon(Icons.arrow_forward_ios, size: 16),
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(task.csTopicDescription, style: Theme.of(context).textTheme.bodyMedium),
-                      ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    elevation: 0,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.menu_book, color: Theme.of(context).colorScheme.secondary),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text(task.csTopic, style: Theme.of(context).textTheme.titleLarge)),
+                            ],
+                          ),
+                          const Divider(height: 32),
+                          Text(task.csTopicDescription, style: Theme.of(context).textTheme.bodyLarge),
+                        ],
+                      ),
                     ),
                   ),
                 ],

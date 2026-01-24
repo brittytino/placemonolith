@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
 import '../../models/app_user.dart';
-import '../../models/task_attendance.dart';
+import '../../services/supabase_db_service.dart';
 
 class TeamAttendanceTab extends StatefulWidget {
   const TeamAttendanceTab({super.key});
@@ -107,18 +107,32 @@ class _TeamAttendanceTabState extends State<TeamAttendanceTab> {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     
     final user = Provider.of<UserProvider>(context).currentUser;
-    if (user?.teamId == null) return const Center(child: Text("You are not assigned to a team."));
+    if (user?.teamId == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.group_off, size: 64, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 16),
+            const Text("You are not assigned to a team."),
+          ],
+        )
+      );
+    }
 
     if (_isSubmitted) {
-      // Show summary or simple "Locked" message
-      // Ideally show what was submitted if we fetched it, but for now:
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock_clock, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text("Attendance Locked or Already Submitted for today.", style: TextStyle(fontSize: 16)),
+            Icon(Icons.lock_clock, size: 64, color: Theme.of(context).colorScheme.tertiary),
+            const SizedBox(height: 16),
+            Text(
+              "Attendance Locked", 
+              style: Theme.of(context).textTheme.headlineSmall
+            ),
+            const SizedBox(height: 8),
+            const Text("You have already submitted attendance for today."),
           ],
         ),
       );
@@ -128,49 +142,98 @@ class _TeamAttendanceTabState extends State<TeamAttendanceTab> {
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Text("Mark Attendance - Team ${user!.teamId}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          child: Row(
+            children: [
+              Icon(Icons.diversity_3, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Team ${user!.teamId} Members", style: Theme.of(context).textTheme.titleLarge),
+                  Text("Mark absent students clearly", style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ],
+          ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: _members.length,
+            separatorBuilder: (c, i) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final member = _members[index];
-              return CheckboxListTile(
-                title: Text(member.name),
-                subtitle: Text(member.regNo),
-                value: _attendanceMap[member.uid],
-                onChanged: (val) {
-                  setState(() {
-                    _attendanceMap[member.uid] = val ?? false;
-                  });
-                },
+              final isPresent = _attendanceMap[member.uid] ?? false;
+              
+              return Card(
+                elevation: 0,
+                color: isPresent 
+                  ? Theme.of(context).colorScheme.surfaceContainerHighest
+                  : Theme.of(context).colorScheme.errorContainer.withOpacity(0.3),
+                child: SwitchListTile(
+                  title: Text(member.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(member.regNo),
+                  value: isPresent,
+                  activeColor: Colors.green, // Explicit green for clarity
+                  inactiveThumbColor: Colors.red,
+                  inactiveTrackColor: Colors.red.withOpacity(0.2),
+                  secondary: CircleAvatar(
+                    backgroundColor: isPresent ? Colors.green.shade100 : Colors.red.shade100,
+                    child: Text(
+                       member.name[0],
+                       style: TextStyle(color: isPresent ? Colors.green.shade800 : Colors.red.shade800)
+                    ),
+                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      _attendanceMap[member.uid] = val;
+                    });
+                  },
+                ),
               );
             },
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: FilledButton(
-              onPressed: _submit,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.indigo,
-                foregroundColor: Colors.white,
+        Container(
+          padding: const EdgeInsets.all(24.0),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -5)
+              )
+            ]
+          ),
+          child: Column(
+            children: [
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton.icon(
+                  onPressed: _submit,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text("SUBMIT ATTENDANCE"),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  ),
+                ),
               ),
-              child: const Text("Final Submit (Cannot Undo)"),
-            ),
+              const SizedBox(height: 12),
+               Text(
+                "Action is final cannot be undone by Team Leader.", 
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error, 
+                  fontSize: 12, 
+                  fontWeight: FontWeight.bold
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 24.0, left: 16, right: 16),
-          child: Text(
-            "WARNING: Once submitted, you CANNOT edit this. The list is final for the day. Ensure all absentees are marked correctly before clicking.", 
-            style: TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-        )
       ],
     );
   }

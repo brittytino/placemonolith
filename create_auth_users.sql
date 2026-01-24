@@ -11,6 +11,91 @@
 -- 5. Then run complete_user_seed.sql
 
 -- ============================================================================
+-- RECREATE TRIGGER FUNCTION TO INCLUDE BATCH COLUMN
+-- ============================================================================
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_user();
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.whitelist WHERE email = NEW.email) THEN
+    INSERT INTO public.users (id, email, reg_no, name, batch, team_id, roles)
+    SELECT NEW.id, NEW.email, reg_no, name, batch, team_id, roles 
+    FROM public.whitelist WHERE email = NEW.email;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================================================
+-- CREATE WHITELIST TABLE (required by auth trigger)
+-- ============================================================================
+DROP TABLE IF EXISTS public.whitelist CASCADE;
+
+CREATE TABLE public.whitelist (
+  email TEXT PRIMARY KEY,
+  name TEXT,
+  reg_no TEXT,
+  batch TEXT,
+  team_id TEXT,
+  roles JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Add whitelisted emails with user data
+INSERT INTO public.whitelist (email, name, reg_no, batch, team_id, roles) VALUES
+  (
+    '25mx354@psgtech.ac.in',
+    'Tino Britty J',
+    '25MX354',
+    'G2',
+    'G2-T07',
+    '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": true}'::jsonb
+  ),
+  (
+    'dummy.student@psgtech.ac.in',
+    'Test Student',
+    'DUMMY001',
+    'G1',
+    'G1-T01',
+    '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": false}'::jsonb
+  ),
+  (
+    'dummy.leader@psgtech.ac.in',
+    'Test Team Leader',
+    'DUMMY002',
+    'G1',
+    'G1-T02',
+    '{"isStudent": true, "isTeamLeader": true, "isCoordinator": false, "isPlacementRep": false}'::jsonb
+  ),
+  (
+    'dummy.coordinator@psgtech.ac.in',
+    'Test Coordinator',
+    'DUMMY003',
+    'G1',
+    'G1-T03',
+    '{"isStudent": true, "isTeamLeader": false, "isCoordinator": true, "isPlacementRep": false}'::jsonb
+  );
+
+-- ============================================================================
+-- DELETE OLD AUTH USERS (if they exist) and CREATE FRESH ONES
+-- ============================================================================
+
+-- Delete old users
+DELETE FROM auth.users 
+WHERE email IN (
+  '25mx354@psgtech.ac.in',
+  'dummy.student@psgtech.ac.in',
+  'dummy.leader@psgtech.ac.in',
+  'dummy.coordinator@psgtech.ac.in'
+);
+
+-- ============================================================================
 -- Create Placement Rep Account (YOU)
 -- ============================================================================
 -- Email: 25mx354@psgtech.ac.in | Password: psgtech@2025
@@ -48,8 +133,7 @@ INSERT INTO auth.users (
   '',
   '',
   ''
-)
-ON CONFLICT (email) DO NOTHING;
+);
 
 -- ============================================================================
 -- Create Dummy Student Account
@@ -89,8 +173,7 @@ INSERT INTO auth.users (
   '',
   '',
   ''
-)
-ON CONFLICT (email) DO NOTHING;
+);
 
 -- ============================================================================
 -- Create Dummy Team Leader Account
@@ -130,8 +213,7 @@ INSERT INTO auth.users (
   '',
   '',
   ''
-)
-ON CONFLICT (email) DO NOTHING;
+);
 
 -- ============================================================================
 -- Create Dummy Coordinator Account
@@ -171,8 +253,7 @@ INSERT INTO auth.users (
   '',
   '',
   ''
-)
-ON CONFLICT (email) DO NOTHING;
+);
 
 -- ============================================================================
 -- VERIFICATION QUERY
@@ -182,7 +263,8 @@ SELECT email,
        CASE WHEN raw_user_meta_data->>'name' IS NOT NULL 
             THEN raw_user_meta_data->>'name' 
             ELSE 'N/A' 
-       END as name
+       END as name,
+       created_at
 FROM auth.users 
 WHERE email IN (
   '25mx354@psgtech.ac.in',
