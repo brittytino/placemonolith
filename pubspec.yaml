@@ -23,7 +23,7 @@ dependencies:
   # For file picking
   file_picker: ^8.0.0+1
   # For charts (optional but clean)
-  fl_chart: ^1.1.1
+  fl_chart: ^0.71.0
   # For responsive design
   flutter_adaptive_scaffold: ^0.2.0
   flutter_local_notifications: ^19.5.0
