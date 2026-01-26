@@ -68,27 +68,54 @@ class _DailyAttendanceSheetState extends State<DailyAttendanceSheet> {
               children: [
                 const Text("View: ", style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(width: 8),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text("My Team")),
-                    ButtonSegment(value: true, label: Text("All Students")),
-                  ],
-                  selected: {_showAllStudents},
-                  onSelectionChanged: (Set<bool> newSelection) {
-                    setState(() {
-                      _showAllStudents = newSelection.first;
-                      _statusMap.clear(); // Clear local changes when switching
-                    });
-                    _loadData();
-                  },
+                Expanded( // Added Expanded to avoid overflow
+                  child: SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: false, label: Text("My Team")),
+                      ButtonSegment(value: true, label: Text("All Students")),
+                    ],
+                    selected: {_showAllStudents},
+                    onSelectionChanged: (Set<bool> newSelection) {
+                      setState(() {
+                        _showAllStudents = newSelection.first;
+                        _statusMap.clear(); // Clear local changes when switching
+                      });
+                      _loadData();
+                    },
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
           ],
-          Text(
-            "Mark attendance for today. This can only be submitted once.",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+          
+          // Action Bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  "Mark attendance for today. This can only be submitted once.",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                ),
+              ),
+              Consumer<AttendanceProvider>(
+                builder: (context, provider, _) { 
+                  if (provider.hasSubmittedToday) return const SizedBox.shrink();
+                  // Only show Mark All if data loaded and not submitted
+                  return TextButton(
+                    onPressed: () {
+                         setState(() {
+                             for (var m in provider.teamMembers) {
+                                _statusMap[m.uid] = 'PRESENT';
+                             }
+                         });
+                    },
+                    child: const Text("Mark All Present"),
+                  );
+                }
+              )
+            ],
           ),
           const SizedBox(height: AppSpacing.lg),
           
@@ -98,11 +125,19 @@ class _DailyAttendanceSheetState extends State<DailyAttendanceSheet> {
                 if (provider.isLoading) return const Center(child: CircularProgressIndicator());
                 if (provider.hasSubmittedToday) return _buildSubmittedView();
                 
-                // Initialize map if empty
+                // Initialize map if empty (defensive check)
                 if (_statusMap.isEmpty && provider.teamMembers.isNotEmpty) {
-                  for (var m in provider.teamMembers) {
-                    _statusMap[m.uid] = 'PRESENT';
-                  }
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() {
+                        for (var m in provider.teamMembers) {
+                          _statusMap[m.uid] = 'PRESENT';
+                        }
+                      });
+                    }
+                  });
+                  // Return loading state while initializing
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 return ListView.separated(

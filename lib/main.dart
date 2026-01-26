@@ -14,23 +14,34 @@ import 'services/supabase_db_service.dart';
 import 'services/quote_service.dart';
 import 'services/notification_service.dart';
 import 'services/connectivity_service.dart';
-import 'core/error_boundary.dart';
+import 'ui/widgets/error_boundary.dart';
 import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize Global Error Handling
-  setupGlobalErrorHandling();
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('[GLOBAL ERROR] ${details.exception}');
+    return GlobalErrorWidget(errorDetails: details);
+  };
   
-  await NotificationService().init();
+  try {
+    debugPrint('[APP] Initializing NotificationService...');
+    await NotificationService().init();
+    
+    debugPrint('[APP] Initializing Supabase...');
+    await Supabase.initialize(
+      url: SupabaseConfig.supabaseUrl,
+      anonKey: SupabaseConfig.supabaseAnonKey,
+    );
+    debugPrint('[APP] Supabase initialized successfully');
+  } catch (e) {
+    debugPrint('[APP ERROR] Initialization failed: $e');
+    rethrow;
+  }
   
-  await Supabase.initialize(
-    url: SupabaseConfig.supabaseUrl,
-    anonKey: SupabaseConfig.supabaseAnonKey,
-  );
-  
-  runApp(const ErrorBoundary(child: PsgMxApp()));
+  runApp(const PsgMxApp());
 }
 
 class PsgMxApp extends StatelessWidget {

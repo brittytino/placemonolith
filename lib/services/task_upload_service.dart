@@ -25,20 +25,20 @@ class TaskUploadService {
       
       final response = await _supabase
           .from('daily_tasks')
-          .insert({
+          .upsert({ 
             'date': dateString,
             'topic_type': topicType.name,
             'title': title,
             'reference_link': referenceLink,
             'subject': subject,
             'uploaded_by': uploadedBy,
-          })
+          }, onConflict: 'date, topic_type') // Enforce One Per Type Per Day
           .select()
           .single();
 
       return DailyTask.fromMap(response);
     } catch (e) {
-      throw Exception('Failed to create task: ${e.toString()}');
+      throw Exception('Failed to create/update task: ${e.toString()}');
     }
   }
 
@@ -293,7 +293,12 @@ class TaskUploadService {
     int successCount = 0;
     int errorCount = 0;
     final errors = <String>[];
+    
+    // Deduplication Set: key = "YYYY-MM-DD_TOPIC"
+    final Set<String> processedKeys = {};
+    final List<TaskUploadRow> uniqueRows = [];
 
+    // 1. Client-Side Deduplication & Validation
     try {
       for (final sheet in sheets) {
         for (final row in sheet.rows) {
@@ -303,6 +308,22 @@ class TaskUploadService {
             continue;
           }
 
+          final dateKey = row.date.toIso8601String().split('T')[0];
+          final uniqueKey = '${dateKey}_${row.topicType.name}';
+
+          if (processedKeys.contains(uniqueKey)) {
+             errorCount++;
+             errors.add('Duplicate Date detected: $dateKey (${row.topicType.name}). Removed from batch.');
+             continue; // Skip duplicate
+          }
+          
+          processedKeys.add(uniqueKey);
+          uniqueRows.add(row);
+        }
+      }
+      
+      // 2. Process Unique Rows
+      for (final row in uniqueRows) {
           try {
             await createTask(
               date: row.date,
@@ -317,7 +338,6 @@ class TaskUploadService {
             errorCount++;
             errors.add('Failed to upload "${row.title}": ${e.toString()}');
           }
-        }
       }
 
       // Create audit log

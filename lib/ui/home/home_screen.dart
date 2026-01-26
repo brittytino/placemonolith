@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/leetcode_stats.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/leetcode_provider.dart';
 import '../../providers/announcement_provider.dart';
 import '../../services/supabase_db_service.dart';
 import '../../services/quote_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/attendance_service.dart';
 import '../../core/theme/app_dimens.dart';
 import '../widgets/premium_card.dart';
 import 'widgets/leetcode_card.dart';
-import 'widgets/leaderboard_card.dart';
+import 'widgets/leetcode_leaderboard.dart';
 import 'widgets/attendance_action_card.dart';
-import '../../core/ui/skeletons.dart';
 import 'widgets/announcements_list.dart';
 import 'widgets/create_announcement_dialog.dart';
 import '../attendance/daily_attendance_sheet.dart';
@@ -25,32 +24,58 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  Future<List<LeetCodeStats>>? _leaderboardFuture;
+  bool _isClassDay = true;
+  bool _isLoadingClassStatus = true;
 
   @override
   void initState() {
     super.initState();
-    _leaderboardFuture = context.read<LeetCodeProvider>().fetchTopSolvers();
+    _refreshAll();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 1. Fetch Announcements
-      context.read<AnnouncementProvider>().fetchAnnouncements();
-      
-      // 2. Refresh My LeetCode Stats
-      final user = context.read<UserProvider>().currentUser;
-      if (user?.leetcodeUsername != null) {
-        context.read<LeetCodeProvider>().fetchStats(user!.leetcodeUsername!);
-      }
+      NotificationService().init(); // Ensure notification init
+      NotificationService().requestPermissions();
+      _checkAttendancePopup();
     });
+  }
 
-    NotificationService().init(); // Ensure notification init
-    NotificationService().requestPermissions();
-    _checkAttendancePopup();
+  Future<void> _refreshAll() async {
+    if (!mounted) return;
+    // 1. Refresh Leaderboard
+    // 2. Fetch Announcements
+    context.read<AnnouncementProvider>().fetchAnnouncements();
+    
+    // 3. Refresh My LeetCode Stats
+    final user = context.read<UserProvider>().currentUser;
+    if (user?.leetcodeUsername != null) {
+      await context.read<LeetCodeProvider>().fetchStats(user!.leetcodeUsername!);
+    }
+
+    // 4. Check Class Day Status
+    await _checkClassDay();
+  }
+  
+  Future<void> _checkClassDay() async {
+     if (!mounted) return;
+     setState(() => _isLoadingClassStatus = true);
+     try {
+       final attendanceService = AttendanceService();
+       final isDay = await attendanceService.isWorkingDay(DateTime.now());
+       if (mounted) setState(() => _isClassDay = isDay);
+     } catch (e) {
+       // Fail safe to TRUE so we don't accidentally block attendance if network fails
+       if (mounted) setState(() => _isClassDay = true); 
+     } finally {
+       if (mounted) setState(() => _isLoadingClassStatus = false);
+     }
   }
 
   void _checkAttendancePopup() async {
     final userProvider = context.read<UserProvider>();
     if (!userProvider.isTeamLeader) return;
+    
+    // Only check on class days!
+    if (!_isClassDay) return;
 
     final now = DateTime.now();
     // After 5 PM
@@ -70,6 +95,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showAttendanceSheet(BuildContext context) {
+    if (!_isClassDay) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Today is marked as a NON-CLASS day. Attendance not required.")),
+      );
+      return; 
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true, 
@@ -100,8 +131,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Determine Dashboard Type
     final isStudentView = !userProvider.isCoordinator && !userProvider.isPlacementRep;
-    // Show TL Actions if Lead AND (Time > 10AM for demo, > 17PM for prod)
-    final showTLActions = userProvider.isTeamLeader; 
+    // Show TL Actions if Lead AND Class Day
+    final showTLActions = userProvider.isTeamLeader && _isClassDay; 
     final canPost = userProvider.isCoordinator || userProvider.isPlacementRep;
 
     return Scaffold(
@@ -110,63 +141,85 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: const Icon(Icons.campaign),
         label: const Text("Announce"),
       ) : null,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(context, userProvider),
-          SliverPadding(
-            padding: const EdgeInsets.all(AppSpacing.screenPadding),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // 1. Welcome Header
-                _buildWelcomeHeader(context, user.name),
-                const SizedBox(height: AppSpacing.xl),
-
-                // 2. Hero Component: Daily Quote
-                _QuoteCard(service: quoteService),
-                const SizedBox(height: AppSpacing.xxl),
-                
-                // 3. Announcements (Global)
-                const AnnouncementsList(),
-                const SizedBox(height: AppSpacing.xxl),
-
-                // Gamified Leaderboard
-                FutureBuilder<List<LeetCodeStats>>(
-                  future: _leaderboardFuture,
-                  builder: (context, snapshot) {
-                     if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Padding(
-                          padding: EdgeInsets.only(bottom: AppSpacing.xxl),
-                          child: SkeletonCard(height: 200),
-                        );
-                     }
-                     if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
-                     return Column(
-                       children: [
-                         LeaderboardCard(topSolvers: snapshot.data!),
-                         const SizedBox(height: AppSpacing.xxl),
-                       ],
-                     );
-                  }
-                ),
-
-                // 4. TL Actions
-                if (showTLActions) ...[
-                  AttendanceActionCard(onTap: () => _showAttendanceSheet(context)),
+      body: RefreshIndicator(
+        onRefresh: _refreshAll,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(), // Allow pull to refresh even if content short
+          slivers: [
+            _buildSliverAppBar(context, userProvider),
+            
+            // Non-Class Day Warning
+            if (!_isClassDay && !_isLoadingClassStatus)
+               SliverToBoxAdapter(
+                 child: Container(
+                   margin: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                   padding: const EdgeInsets.all(AppSpacing.md),
+                   decoration: BoxDecoration(
+                     color: Colors.amber.withValues(alpha: 0.1),
+                     borderRadius: BorderRadius.circular(AppRadius.lg),
+                     border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                   ),
+                   child: Row(
+                     children: [
+                       const Icon(Icons.weekend, color: Colors.amber, size: 20),
+                       const SizedBox(width: AppSpacing.md),
+                       Text(
+                         "No Class Today - Relax & Upskill!",
+                         style: TextStyle(
+                           color: Colors.amber[800],
+                           fontWeight: FontWeight.w600,
+                         ),
+                       ),
+                     ],
+                   ),
+                 ),
+               ),
+            
+            SliverPadding(
+              padding: const EdgeInsets.all(AppSpacing.screenPadding),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // 1. Welcome Header
+                  _buildWelcomeHeader(context, user.name),
+                  const SizedBox(height: AppSpacing.xl),
+  
+                  // 2. Hero Component: Daily Quote
+                  _QuoteCard(service: quoteService),
                   const SizedBox(height: AppSpacing.xxl),
-                ],
-
-                // 5. Dashboard
-                if (isStudentView)
-                  _StudentDashboard(db: dbService, provider: userProvider)
-                else
-                  _AdminDashboard(db: dbService),
                   
-                // Bottom padding
-                const SizedBox(height: AppSpacing.xxl),
-              ]),
+                  // 3. Announcements (Global)
+                  const AnnouncementsList(),
+                  const SizedBox(height: AppSpacing.xxl),
+  
+                  // 4. TL Actions
+                  if (showTLActions) ...[
+                    AttendanceActionCard(onTap: () => _showAttendanceSheet(context)),
+                    const SizedBox(height: AppSpacing.xxl),
+                  ],
+  
+                  // 5. Dashboard (Overview Section)
+                  if (isStudentView)
+                    _StudentDashboard(db: dbService, provider: userProvider)
+                  else
+                    _AdminDashboard(db: dbService),
+                    
+                  const SizedBox(height: AppSpacing.xxl),
+
+                  // 6. LeetCode Leaderboard (Below Overview Section)
+                  const LeetCodeLeaderboard(),
+                  const SizedBox(height: AppSpacing.xxl),
+  
+                  // 7. Personal LeetCode Stats (For Everyone with Username)
+                  if (user.leetcodeUsername != null && user.leetcodeUsername!.isNotEmpty)
+                     const LeetCodeCard(),
+                  
+                  // Bottom padding
+                  const SizedBox(height: AppSpacing.xxl),
+                ]),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -387,9 +440,6 @@ class _StudentDashboard extends StatelessWidget {
               ),
            ],
          ),
-         const SizedBox(height: AppSpacing.xxl),
-         
-         const LeetCodeCard(),
       ],
     );
   }
@@ -428,7 +478,12 @@ class _AdminDashboard extends StatelessWidget {
     return FutureBuilder<Map<String, dynamic>>(
       future: db.getPlacementStats(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox(height: 100);
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const SizedBox(height: 100, child: Center(child: Text('Unable to load stats')));
+        }
 
         final data = snapshot.data!;
         final total = data['total_students'] as int? ?? 123;

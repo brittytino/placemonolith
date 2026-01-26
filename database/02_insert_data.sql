@@ -1,27 +1,19 @@
--- ============================================================================
--- PSGMX: Complete User Seed v2 (Generated)
--- ============================================================================
+-- ========================================
+-- PSG TECHNOLOGY PLACEMENT MANAGEMENT SYSTEM
+-- DATA INSERTION & SYNCHRONIZATION
+-- FILE 2 of 2: Insert Data
+-- ========================================
+-- Run this file AFTER 01_create_schema.sql
+-- This inserts all 123 students into whitelist and syncs to users table
+-- ========================================
 
--- 1. Ensure Table Schema
-ALTER TABLE public.users 
-ADD COLUMN IF NOT EXISTS leetcode_username TEXT,
-ADD COLUMN IF NOT EXISTS dob DATE,
-ADD COLUMN IF NOT EXISTS birthday_notifications_enabled BOOLEAN DEFAULT TRUE;
+-- Ensure all columns exist in whitelist table
+ALTER TABLE public.whitelist ADD COLUMN IF NOT EXISTS dob DATE;
+ALTER TABLE public.whitelist ADD COLUMN IF NOT EXISTS leetcode_username TEXT;
+ALTER TABLE public.whitelist ADD COLUMN IF NOT EXISTS roles JSONB;
+ALTER TABLE public.whitelist ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
-DROP TABLE IF EXISTS public.whitelist;
-CREATE TABLE public.whitelist (
-  email TEXT PRIMARY KEY,
-  name TEXT,
-  reg_no TEXT,
-  batch TEXT,
-  team_id TEXT,
-  dob DATE,
-  leetcode_username TEXT,
-  roles JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 2. Insert Data
+-- Insert 123 students into whitelist
 INSERT INTO public.whitelist (email, name, reg_no, batch, team_id, dob, leetcode_username, roles) VALUES
 ('25mx101@psgtech.ac.in', 'BALAJI K', '25MX101', 'G1', 'T00', '2005-10-22', 'V8HjERH7Hj', '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": false}'),
 ('25mx102@psgtech.ac.in', 'Balasubramaniam S', '25MX102', 'G1', 'T00', '2003-07-05', 'Bala_subramaniam', '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": false}'),
@@ -144,19 +136,55 @@ INSERT INTO public.whitelist (email, name, reg_no, batch, team_id, dob, leetcode
 ('25mx360@psgtech.ac.in', 'Yaswanth R T', '25MX360', 'G2', 'T00', '2004-07-01', 'yash_3237', '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": false}'),
 ('25mx361@psgtech.ac.in', 'Sanjana M', '25MX361', 'G2', 'T00', '2004-04-29', 'sanjana_m29', '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": false}'),
 ('25mx362@psgtech.ac.in', 'Narayanasamy', '25MX362', 'G2', 'T00', NULL, 'Narayana_1080', '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": false}'),
-('25mx363@psgtech.ac.in', 'Tharun S', '25MX363', 'G2', 'T00', '2003-04-12', 'Tectonic_', '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": false}');
+('25mx363@psgtech.ac.in', 'Tharun S', '25MX363', 'G2', 'T00', '2003-04-12', 'Tectonic_', '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": false}')
+ON CONFLICT (email) DO UPDATE SET
+    name = EXCLUDED.name,
+    reg_no = EXCLUDED.reg_no,
+    batch = EXCLUDED.batch,
+    team_id = EXCLUDED.team_id,
+    dob = EXCLUDED.dob,
+    leetcode_username = EXCLUDED.leetcode_username,
+    roles = EXCLUDED.roles;
 
--- 3. Sync Public Users
+-- Sync whitelist data to users table (for existing authenticated users)
 UPDATE public.users u
 SET 
-  team_id = w.team_id,
-  roles = w.roles,
-  batch = w.batch,
-  name = w.name,
-  reg_no = w.reg_no,
-  dob = w.dob,
-  leetcode_username = w.leetcode_username
+    team_id = w.team_id,
+    roles = w.roles,
+    batch = w.batch,
+    name = w.name,
+    reg_no = w.reg_no,
+    dob = w.dob,
+    leetcode_username = w.leetcode_username
 FROM public.whitelist w
 WHERE u.email = w.email;
 
-SELECT COUNT(*) as whitelist_count FROM public.whitelist;
+-- ========================================
+-- VERIFICATION & COMPLETION MESSAGE
+-- ========================================
+
+DO $$
+DECLARE
+    whitelist_count INT;
+    users_with_leetcode INT;
+BEGIN
+    SELECT COUNT(*) INTO whitelist_count FROM public.whitelist;
+    
+    SELECT COUNT(*) INTO users_with_leetcode
+    FROM public.users
+    WHERE leetcode_username IS NOT NULL AND leetcode_username != '';
+    
+    RAISE NOTICE '';
+    RAISE NOTICE '========================================';
+    RAISE NOTICE '✅ DATA INSERTION COMPLETE!';
+    RAISE NOTICE '========================================';
+    RAISE NOTICE 'Whitelist entries: %', whitelist_count;
+    RAISE NOTICE 'Users with LeetCode usernames: %', users_with_leetcode;
+    RAISE NOTICE '';
+    RAISE NOTICE 'Next Steps:';
+    RAISE NOTICE '  1. Restart your Flutter app';
+    RAISE NOTICE '  2. Navigate to Home Screen';
+    RAISE NOTICE '  3. View LeetCode Leaderboard';
+    RAISE NOTICE '  4. Stats will auto-refresh from API';
+    RAISE NOTICE '========================================';
+END $$;

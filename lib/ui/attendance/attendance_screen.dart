@@ -97,7 +97,8 @@ class _StudentAttendanceView extends StatelessWidget {
                             ),
                           ),
                           SizedBox(
-                            height: 60, width: 60,
+                            height: 60,
+                            width: 60,
                             child: CircularProgressIndicator(
                               value: percent,
                               strokeWidth: 6,
@@ -108,7 +109,18 @@ class _StudentAttendanceView extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
+                    const SizedBox(height: AppSpacing.sm),
+                    // Disclaimer
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        const SizedBox(width: 4),
+                        Text(
+                          "Calculated excluding non-working days.",
+                           style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: AppSpacing.xl),
                     Text(
                       "HISTORY", 

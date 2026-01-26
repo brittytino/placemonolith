@@ -1,7 +1,10 @@
 -- ========================================
--- PSG Technology Placement Management System
--- Complete Database Schema with RLS
--- Production-Grade for 2-Year Stability
+-- PSG TECHNOLOGY PLACEMENT MANAGEMENT SYSTEM
+-- COMPLETE DATABASE SCHEMA
+-- FILE 1 of 2: Schema Creation
+-- ========================================
+-- Run this file FIRST in Supabase SQL Editor
+-- This creates all tables, functions, RLS policies, and indexes
 -- ========================================
 
 -- Enable necessary extensions
@@ -19,6 +22,10 @@ CREATE TABLE IF NOT EXISTS users (
     team_id TEXT,
     batch TEXT NOT NULL CHECK (batch IN ('G1', 'G2')),
     roles JSONB NOT NULL DEFAULT '{"isStudent": true, "isTeamLeader": false, "isCoordinator": false, "isPlacementRep": false}',
+    leetcode_username TEXT,
+    dob DATE,
+    birthday_notifications_enabled BOOLEAN DEFAULT TRUE,
+    leetcode_notifications_enabled BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -29,6 +36,45 @@ CREATE INDEX IF NOT EXISTS idx_users_reg_no ON users(reg_no);
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
 CREATE INDEX IF NOT EXISTS idx_users_batch ON users(batch);
 CREATE INDEX IF NOT EXISTS idx_users_roles ON users USING GIN(roles);
+CREATE INDEX IF NOT EXISTS idx_users_leetcode ON users(leetcode_username) WHERE leetcode_username IS NOT NULL;
+
+-- ========================================
+-- TABLE: whitelist (for user registration)
+-- ========================================
+CREATE TABLE IF NOT EXISTS whitelist (
+    email TEXT PRIMARY KEY,
+    name TEXT,
+    reg_no TEXT,
+    batch TEXT,
+    team_id TEXT,
+    dob DATE,
+    leetcode_username TEXT,
+    roles JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_whitelist_email ON whitelist(email);
+CREATE INDEX IF NOT EXISTS idx_whitelist_reg_no ON whitelist(reg_no);
+
+-- ========================================
+-- TABLE: leetcode_stats
+-- ========================================
+CREATE TABLE IF NOT EXISTS leetcode_stats (
+    username TEXT PRIMARY KEY,
+    total_solved INT DEFAULT 0,
+    easy_solved INT DEFAULT 0,
+    medium_solved INT DEFAULT 0,
+    hard_solved INT DEFAULT 0,
+    ranking INT DEFAULT 0,
+    weekly_score INT DEFAULT 0,
+    last_updated TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_leetcode_stats_total ON leetcode_stats(total_solved DESC);
+CREATE INDEX IF NOT EXISTS idx_leetcode_stats_weekly ON leetcode_stats(weekly_score DESC);
+CREATE INDEX IF NOT EXISTS idx_leetcode_stats_updated ON leetcode_stats(last_updated);
 
 -- ========================================
 -- TABLE: attendance_days
@@ -42,7 +88,7 @@ CREATE TABLE IF NOT EXISTS attendance_days (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Index for performance
+-- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_attendance_days_date ON attendance_days(date);
 CREATE INDEX IF NOT EXISTS idx_attendance_days_is_working ON attendance_days(is_working_day);
 
@@ -59,7 +105,7 @@ CREATE TABLE IF NOT EXISTS daily_tasks (
     uploaded_by UUID NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(date, topic_type, title)
+    UNIQUE(date, topic_type)
 );
 
 -- Indexes for performance
@@ -205,9 +251,9 @@ DECLARE
 BEGIN
     SELECT * INTO working_day_record FROM attendance_days WHERE date = check_date;
     
-    -- If no record exists, default to NOT a working day (NA)
+    -- If no record exists, default to TRUE (working day)
     IF NOT FOUND THEN
-        RETURN FALSE;
+        RETURN TRUE;
     END IF;
     
     RETURN working_day_record.is_working_day;
@@ -220,6 +266,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Enable RLS on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whitelist ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leetcode_stats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance_days ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
@@ -231,57 +279,91 @@ ALTER TABLE notification_reads ENABLE ROW LEVEL SECURITY;
 -- USERS TABLE RLS POLICIES
 -- ========================================
 
--- Policy: Users can read their own data
-CREATE POLICY users_read_own ON users
+DROP POLICY IF EXISTS "users_read_own" ON users;
+CREATE POLICY "users_read_own" ON users
     FOR SELECT
     USING (auth.uid() = id);
 
--- Policy: Placement reps can read all users
-CREATE POLICY users_read_placement_rep ON users
+DROP POLICY IF EXISTS "users_read_placement_rep" ON users;
+CREATE POLICY "users_read_placement_rep" ON users
     FOR SELECT
     USING (is_placement_rep(auth.uid()));
 
--- Policy: Team leaders can read their team members
-CREATE POLICY users_read_team ON users
+DROP POLICY IF EXISTS "users_read_team" ON users;
+CREATE POLICY "users_read_team" ON users
     FOR SELECT
     USING (
         is_team_leader(auth.uid()) 
         AND team_id = get_user_team(auth.uid())
     );
 
--- Policy: Coordinators can read all users
-CREATE POLICY users_read_coordinator ON users
+DROP POLICY IF EXISTS "users_read_coordinator" ON users;
+CREATE POLICY "users_read_coordinator" ON users
     FOR SELECT
     USING (is_coordinator(auth.uid()));
 
--- Policy: Only placement reps can update users
-CREATE POLICY users_update_placement_rep ON users
+DROP POLICY IF EXISTS "users_update_own" ON users;
+CREATE POLICY "users_update_own" ON users
+    FOR UPDATE
+    USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "users_update_placement_rep" ON users;
+CREATE POLICY "users_update_placement_rep" ON users
     FOR UPDATE
     USING (is_placement_rep(auth.uid()));
 
--- Policy: Users can be inserted (for registration)
-CREATE POLICY users_insert_auth ON users
+DROP POLICY IF EXISTS "users_insert_auth" ON users;
+CREATE POLICY "users_insert_auth" ON users
     FOR INSERT
     WITH CHECK (auth.uid() = id);
+
+-- ========================================
+-- WHITELIST TABLE RLS POLICIES
+-- ========================================
+
+DROP POLICY IF EXISTS "whitelist_read_all" ON whitelist;
+CREATE POLICY "whitelist_read_all" ON whitelist
+    FOR SELECT
+    USING (TRUE);
+
+DROP POLICY IF EXISTS "whitelist_manage_placement_rep" ON whitelist;
+CREATE POLICY "whitelist_manage_placement_rep" ON whitelist
+    FOR ALL
+    USING (is_placement_rep(auth.uid()));
+
+-- ========================================
+-- LEETCODE_STATS TABLE RLS POLICIES
+-- ========================================
+
+DROP POLICY IF EXISTS "leetcode_stats_read_all" ON leetcode_stats;
+CREATE POLICY "leetcode_stats_read_all" ON leetcode_stats
+    FOR SELECT
+    USING (TRUE);
+
+DROP POLICY IF EXISTS "leetcode_stats_manage_auth" ON leetcode_stats;
+CREATE POLICY "leetcode_stats_manage_auth" ON leetcode_stats
+    FOR ALL
+    USING (auth.role() = 'authenticated');
 
 -- ========================================
 -- ATTENDANCE_DAYS TABLE RLS POLICIES
 -- ========================================
 
--- Policy: Everyone can read attendance days
-CREATE POLICY attendance_days_read_all ON attendance_days
+DROP POLICY IF EXISTS "attendance_days_read_all" ON attendance_days;
+CREATE POLICY "attendance_days_read_all" ON attendance_days
     FOR SELECT
     USING (TRUE);
 
--- Policy: Only placement reps and coordinators can insert/update
-CREATE POLICY attendance_days_insert ON attendance_days
+DROP POLICY IF EXISTS "attendance_days_insert" ON attendance_days;
+CREATE POLICY "attendance_days_insert" ON attendance_days
     FOR INSERT
     WITH CHECK (
         is_placement_rep(auth.uid()) 
         OR is_coordinator(auth.uid())
     );
 
-CREATE POLICY attendance_days_update ON attendance_days
+DROP POLICY IF EXISTS "attendance_days_update" ON attendance_days;
+CREATE POLICY "attendance_days_update" ON attendance_days
     FOR UPDATE
     USING (
         is_placement_rep(auth.uid()) 
@@ -292,29 +374,29 @@ CREATE POLICY attendance_days_update ON attendance_days
 -- DAILY_TASKS TABLE RLS POLICIES
 -- ========================================
 
--- Policy: Everyone can read daily tasks
-CREATE POLICY daily_tasks_read_all ON daily_tasks
+DROP POLICY IF EXISTS "daily_tasks_read_all" ON daily_tasks;
+CREATE POLICY "daily_tasks_read_all" ON daily_tasks
     FOR SELECT
     USING (TRUE);
 
--- Policy: Only placement reps and coordinators can insert
-CREATE POLICY daily_tasks_insert ON daily_tasks
+DROP POLICY IF EXISTS "daily_tasks_insert" ON daily_tasks;
+CREATE POLICY "daily_tasks_insert" ON daily_tasks
     FOR INSERT
     WITH CHECK (
         is_placement_rep(auth.uid()) 
         OR is_coordinator(auth.uid())
     );
 
--- Policy: Only placement reps and coordinators can update their own tasks
-CREATE POLICY daily_tasks_update ON daily_tasks
+DROP POLICY IF EXISTS "daily_tasks_update" ON daily_tasks;
+CREATE POLICY "daily_tasks_update" ON daily_tasks
     FOR UPDATE
     USING (
         (is_placement_rep(auth.uid()) OR is_coordinator(auth.uid()))
         AND uploaded_by = auth.uid()
     );
 
--- Policy: Only placement reps can delete tasks
-CREATE POLICY daily_tasks_delete ON daily_tasks
+DROP POLICY IF EXISTS "daily_tasks_delete" ON daily_tasks;
+CREATE POLICY "daily_tasks_delete" ON daily_tasks
     FOR DELETE
     USING (is_placement_rep(auth.uid()));
 
@@ -322,45 +404,44 @@ CREATE POLICY daily_tasks_delete ON daily_tasks
 -- ATTENDANCE TABLE RLS POLICIES
 -- ========================================
 
--- Policy: Students can read their own attendance
-CREATE POLICY attendance_read_own ON attendance
+DROP POLICY IF EXISTS "attendance_read_own" ON attendance;
+CREATE POLICY "attendance_read_own" ON attendance
     FOR SELECT
     USING (student_id = auth.uid());
 
--- Policy: Team leaders can read their team's attendance
-CREATE POLICY attendance_read_team ON attendance
+DROP POLICY IF EXISTS "attendance_read_team" ON attendance;
+CREATE POLICY "attendance_read_team" ON attendance
     FOR SELECT
     USING (
         is_team_leader(auth.uid()) 
         AND team_id = get_user_team(auth.uid())
     );
 
--- Policy: Coordinators can read all attendance
-CREATE POLICY attendance_read_coordinator ON attendance
+DROP POLICY IF EXISTS "attendance_read_coordinator" ON attendance;
+CREATE POLICY "attendance_read_coordinator" ON attendance
     FOR SELECT
     USING (is_coordinator(auth.uid()));
 
--- Policy: Placement reps can read all attendance
-CREATE POLICY attendance_read_placement_rep ON attendance
+DROP POLICY IF EXISTS "attendance_read_placement_rep" ON attendance;
+CREATE POLICY "attendance_read_placement_rep" ON attendance
     FOR SELECT
     USING (is_placement_rep(auth.uid()));
 
--- Policy: Team leaders can insert attendance for their team
-CREATE POLICY attendance_insert_team_leader ON attendance
+DROP POLICY IF EXISTS "attendance_insert_team_leader" ON attendance;
+CREATE POLICY "attendance_insert_team_leader" ON attendance
     FOR INSERT
     WITH CHECK (
         is_team_leader(auth.uid()) 
         AND team_id = get_user_team(auth.uid())
-        AND is_working_day(date)
     );
 
--- Policy: Placement reps can insert attendance for anyone
-CREATE POLICY attendance_insert_placement_rep ON attendance
+DROP POLICY IF EXISTS "attendance_insert_placement_rep" ON attendance;
+CREATE POLICY "attendance_insert_placement_rep" ON attendance
     FOR INSERT
     WITH CHECK (is_placement_rep(auth.uid()));
 
--- Policy: Only placement reps can update attendance (overrides)
-CREATE POLICY attendance_update_placement_rep ON attendance
+DROP POLICY IF EXISTS "attendance_update_placement_rep" ON attendance;
+CREATE POLICY "attendance_update_placement_rep" ON attendance
     FOR UPDATE
     USING (is_placement_rep(auth.uid()));
 
@@ -368,13 +449,13 @@ CREATE POLICY attendance_update_placement_rep ON attendance
 -- AUDIT_LOGS TABLE RLS POLICIES
 -- ========================================
 
--- Policy: Only placement reps can read audit logs
-CREATE POLICY audit_logs_read_placement_rep ON audit_logs
+DROP POLICY IF EXISTS "audit_logs_read_placement_rep" ON audit_logs;
+CREATE POLICY "audit_logs_read_placement_rep" ON audit_logs
     FOR SELECT
     USING (is_placement_rep(auth.uid()));
 
--- Policy: Authenticated users can insert audit logs
-CREATE POLICY audit_logs_insert_auth ON audit_logs
+DROP POLICY IF EXISTS "audit_logs_insert_auth" ON audit_logs;
+CREATE POLICY "audit_logs_insert_auth" ON audit_logs
     FOR INSERT
     WITH CHECK (auth.uid() = actor_id);
 
@@ -382,25 +463,26 @@ CREATE POLICY audit_logs_insert_auth ON audit_logs
 -- NOTIFICATIONS TABLE RLS POLICIES
 -- ========================================
 
--- Policy: Everyone can read active notifications
-CREATE POLICY notifications_read_all ON notifications
+DROP POLICY IF EXISTS "notifications_read_all" ON notifications;
+CREATE POLICY "notifications_read_all" ON notifications
     FOR SELECT
     USING (is_active = TRUE);
 
--- Policy: Only placement reps and coordinators can insert notifications
-CREATE POLICY notifications_insert ON notifications
+DROP POLICY IF EXISTS "notifications_insert" ON notifications;
+CREATE POLICY "notifications_insert" ON notifications
     FOR INSERT
     WITH CHECK (
         is_placement_rep(auth.uid()) 
         OR is_coordinator(auth.uid())
     );
 
--- Policy: Only placement reps can update/delete notifications
-CREATE POLICY notifications_update ON notifications
+DROP POLICY IF EXISTS "notifications_update" ON notifications;
+CREATE POLICY "notifications_update" ON notifications
     FOR UPDATE
     USING (is_placement_rep(auth.uid()));
 
-CREATE POLICY notifications_delete ON notifications
+DROP POLICY IF EXISTS "notifications_delete" ON notifications;
+CREATE POLICY "notifications_delete" ON notifications
     FOR DELETE
     USING (is_placement_rep(auth.uid()));
 
@@ -408,18 +490,18 @@ CREATE POLICY notifications_delete ON notifications
 -- NOTIFICATION_READS TABLE RLS POLICIES
 -- ========================================
 
--- Policy: Users can read their own notification reads
-CREATE POLICY notification_reads_read_own ON notification_reads
+DROP POLICY IF EXISTS "notification_reads_read_own" ON notification_reads;
+CREATE POLICY "notification_reads_read_own" ON notification_reads
     FOR SELECT
     USING (user_id = auth.uid());
 
--- Policy: Users can insert their own notification reads
-CREATE POLICY notification_reads_insert_own ON notification_reads
+DROP POLICY IF EXISTS "notification_reads_insert_own" ON notification_reads;
+CREATE POLICY "notification_reads_insert_own" ON notification_reads
     FOR INSERT
     WITH CHECK (user_id = auth.uid());
 
--- Policy: Users can update their own notification reads
-CREATE POLICY notification_reads_update_own ON notification_reads
+DROP POLICY IF EXISTS "notification_reads_update_own" ON notification_reads;
+CREATE POLICY "notification_reads_update_own" ON notification_reads
     FOR UPDATE
     USING (user_id = auth.uid());
 
@@ -437,32 +519,29 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply triggers to tables
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_attendance_days_updated_at ON attendance_days;
 CREATE TRIGGER update_attendance_days_updated_at BEFORE UPDATE ON attendance_days
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_daily_tasks_updated_at ON daily_tasks;
 CREATE TRIGGER update_daily_tasks_updated_at BEFORE UPDATE ON daily_tasks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_attendance_updated_at ON attendance;
 CREATE TRIGGER update_attendance_updated_at BEFORE UPDATE ON attendance
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- ========================================
--- INITIAL DATA
--- ========================================
-
--- Insert the placement rep user (25mx354@psgtech.ac.in)
--- Note: This will be inserted after auth.users is created
--- The actual user creation happens through Supabase Auth
 
 -- ========================================
 -- VIEWS FOR ANALYTICS
 -- ========================================
 
--- View: Student attendance summary
-CREATE OR REPLACE VIEW student_attendance_summary AS
+-- Drop and recreate views
+DROP VIEW IF EXISTS student_attendance_summary CASCADE;
+CREATE VIEW student_attendance_summary AS
 SELECT 
     u.id as student_id,
     u.email,
@@ -486,8 +565,8 @@ LEFT JOIN attendance a ON u.id = a.student_id
 WHERE (u.roles->>'isStudent')::BOOLEAN = TRUE
 GROUP BY u.id, u.email, u.reg_no, u.name, u.team_id, u.batch;
 
--- View: Team attendance summary
-CREATE OR REPLACE VIEW team_attendance_summary AS
+DROP VIEW IF EXISTS team_attendance_summary CASCADE;
+CREATE VIEW team_attendance_summary AS
 SELECT 
     team_id,
     batch,
@@ -501,28 +580,33 @@ GROUP BY team_id, batch;
 -- GRANT PERMISSIONS
 -- ========================================
 
--- Grant usage on schema
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT USAGE ON SCHEMA public TO anon;
-
--- Grant permissions on tables
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
-
--- Grant permissions on sequences
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-
--- Grant execute on functions
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon;
 
 -- ========================================
 -- COMPLETION MESSAGE
 -- ========================================
--- Database schema created successfully
--- Next steps:
--- 1. Run this SQL in Supabase SQL Editor
--- 2. Create auth user for 25mx354@psgtech.ac.in
--- 3. Insert corresponding user record in users table
--- 4. Configure working days in attendance_days table
--- ========================================
+
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '========================================';
+    RAISE NOTICE '✅ SCHEMA CREATION COMPLETE!';
+    RAISE NOTICE '========================================';
+    RAISE NOTICE 'Created:';
+    RAISE NOTICE '  - 9 Tables (users, whitelist, leetcode_stats, etc.)';
+    RAISE NOTICE '  - 6 Helper Functions';
+    RAISE NOTICE '  - 40+ RLS Policies';
+    RAISE NOTICE '  - 4 Triggers';
+    RAISE NOTICE '  - 2 Views';
+    RAISE NOTICE '  - 30+ Indexes';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Next Step:';
+    RAISE NOTICE '  Run file: 02_insert_data.sql';
+    RAISE NOTICE '========================================';
+END $$;

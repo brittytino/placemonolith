@@ -29,9 +29,36 @@ class AttendanceService {
 
   Future<bool> isWorkingDay(DateTime date) async {
     final attendanceDay = await getAttendanceDay(date);
-    // If no record exists, default to NOT a working day (NA)
-    if (attendanceDay == null) return false;
-    return attendanceDay.isWorkingDay;
+    // 1. DB Override takes precedence
+    if (attendanceDay != null) return attendanceDay.isWorkingDay;
+    
+    // 2. Default Business Logic (Mon, Tue, Thu, Odd Sat)
+    return _isDefaultClassDay(date);
+  }
+  
+  bool _isDefaultClassDay(DateTime date) {
+      final weekday = date.weekday; // 1 = Mon, 7 = Sun
+      
+      // Mon (1), Tue (2), Thu (4)
+      if (weekday == DateTime.monday || weekday == DateTime.tuesday || weekday == DateTime.thursday) {
+        return true;
+      }
+      
+      // Odd Saturdays ONLY
+      if (weekday == DateTime.saturday) {
+          // 1st Sat: 1-7
+          // 2nd Sat: 8-14
+          // 3rd Sat: 15-21
+          // 4th Sat: 22-28
+          // 5th Sat: 29-31
+          final day = date.day;
+          if (day <= 7) return true; // 1st
+          if (day >= 15 && day <= 21) return true; // 3rd
+          if (day >= 29) return true; // 5th
+          return false; // 2nd, 4th
+      }
+      
+      return false; // Wed (3), Fri (5), Sun (7)
   }
 
   Future<List<AttendanceDay>> getAttendanceDaysInRange({
@@ -406,5 +433,39 @@ class AttendanceService {
     } catch (e) {
       throw Exception('Failed to initialize attendance: ${e.toString()}');
     }
+  }
+
+  Future<double> getStudentAttendancePercentage(String studentId) async {
+      try {
+        // 1. Get all attendance records for the student
+        final response = await _supabase
+            .from('attendance')
+            .select('date, status')
+            .eq('student_id', studentId);
+
+        final records = response as List;
+        int totalWorkingDays = 0;
+        int presentDays = 0;
+        
+        for (final rec in records) {
+            final dateStr = rec['date'] as String;
+            final date = DateTime.parse(dateStr);
+            final status = rec['status'] as String;
+            
+            // Verify if it is/was a working day (honoring overrides)
+            if (await isWorkingDay(date)) {
+                totalWorkingDays++;
+                if (status == 'PRESENT') {
+                    presentDays++;
+                }
+            }
+        }
+        
+        if (totalWorkingDays == 0) return 0.0;
+        return (presentDays / totalWorkingDays) * 100; 
+      } catch (e) {
+        debugPrint("Error calculating attendance: $e");
+        return 0.0;
+      }
   }
 }

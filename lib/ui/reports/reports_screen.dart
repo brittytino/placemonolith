@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_db_service.dart';
 import '../../core/theme/app_dimens.dart';
 import '../widgets/premium_card.dart';
@@ -72,29 +73,10 @@ class ReportsScreen extends StatelessWidget {
                                _ActionListTile(
                                  icon: Icons.table_chart_outlined,
                                  title: "Attendance Report",
-                                 subtitle: "Download daily logs as .xlsx",
-                                 onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cloud Function required")));
-                                 },
+                                 subtitle: "View detailed summary",
+                                 onTap: () => _viewAttendanceReport(context),
                                ),
-                               Divider(height: 1, indent: 56, color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
-                               _ActionListTile(
-                                 icon: Icons.task_outlined,
-                                 title: "Task Submissions",
-                                 subtitle: "Download compilation as .csv",
-                                 onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Not implemented")));
-                                 },
-                               ),
-                               Divider(height: 1, indent: 56, color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
-                               _ActionListTile(
-                                 icon: Icons.pie_chart_outline,
-                                 title: "Placement Statistics",
-                                 subtitle: "Summary PDF Report",
-                                 onTap: () {
-                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Not implemented")));
-                                 },
-                               ),
+
                              ],
                            ),
                          )
@@ -107,6 +89,47 @@ class ReportsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+Future<void> _viewAttendanceReport(BuildContext context) async {
+  showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
+  
+  try {
+    final supabase = Supabase.instance.client;
+    final res = await supabase.from('student_attendance_summary').select();
+    final data = res as List<dynamic>; // Ensure cast
+
+    if (!context.mounted) return;
+    Navigator.pop(context); 
+    
+    if (data.isEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No records found.")));
+       return;
+    }
+
+    const csvHeader = "Name,Register No,Batch,Present,Absent,Total Working,Percentage\n";
+    final csvRows = data.map((e) => "${e['name']},${e['reg_no']},${e['batch']},${e['present_count']},${e['absent_count']},${(e['present_count'] ?? 0) + (e['absent_count'] ?? 0)},${e['attendance_percentage']}%").join("\n");
+    final csvContent = "$csvHeader$csvRows";
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Attendance Summary"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText(csvContent, style: const TextStyle(fontFamily: 'monospace', fontSize: 10)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close")),
+        ],
+      )
+    );
+  } catch (e) {
+    if (context.mounted) Navigator.pop(context);
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
   }
 }
 

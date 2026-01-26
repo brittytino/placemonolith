@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../widgets/premium_card.dart';
-import '../../../../models/leetcode_stats.dart';
 import '../../../../providers/leetcode_provider.dart';
 import '../../../../providers/user_provider.dart';
 import '../../../../core/theme/app_dimens.dart';
@@ -18,17 +17,23 @@ class _LeetCodeCardState extends State<LeetCodeCard> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
+      if (mounted) _loadData();
     });
   }
 
   Future<void> _loadData() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final leetCodeProvider = Provider.of<LeetCodeProvider>(context, listen: false);
-    
-    final username = userProvider.currentUser?.leetcodeUsername;
-    if (username != null && username.isNotEmpty) {
-      leetCodeProvider.fetchStats(username);
+    if (!mounted) return;
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final leetCodeProvider = Provider.of<LeetCodeProvider>(context, listen: false);
+      
+      final username = userProvider.currentUser?.leetcodeUsername;
+      if (username != null && username.isNotEmpty) {
+        await leetCodeProvider.fetchStats(username);
+      }
+    } catch (e) {
+      // Silent fail - card will show cached or empty state
+      debugPrint('[LeetCodeCard] Init error: $e');
     }
   }
 
@@ -106,50 +111,70 @@ class _LeetCodeCardState extends State<LeetCodeCard> {
   }
 
   Widget _buildStatsView(BuildContext context, LeetCodeProvider provider, String username) {
-    return FutureBuilder<LeetCodeStats?>(
-      future: provider.fetchStats(username),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox(
-            height: 100, 
-            child: Center(child: Text('Loading stats...', style: TextStyle(color: Colors.white54)))
-          );
-        }
+    // 1. Check for cached stats
+    final stats = provider.getCachedStats(username);
+    
+    // 2. If no stats and loading, show loader
+    if (stats == null && provider.isLoading) {
+      return const SizedBox(
+        height: 100, 
+        child: Center(child: Text('Loading stats...', style: TextStyle(color: Colors.white54)))
+      );
+    }
 
-        final stats = snapshot.data!;
-        
-        return Column(
+    // 3. If stats available (even stale), show them
+    if (stats != null) {
+      return Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem('Total', stats.totalSolved.toString(), Colors.white),
+              _buildStatItem('Easy', stats.easySolved.toString(), Colors.greenAccent),
+              _buildStatItem('Medium', stats.mediumSolved.toString(), Colors.orangeAccent),
+              _buildStatItem('Hard', stats.hardSolved.toString(), Colors.redAccent),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Global Ranking',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              ),
+              Text(
+                '#${stats.ranking}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white, fontWeight: FontWeight.bold
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // 4. Fallback if error or no data yet
+    return SizedBox(
+      height: 100,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem('Total', stats.totalSolved.toString(), Colors.white),
-                _buildStatItem('Easy', stats.easySolved.toString(), Colors.greenAccent),
-                _buildStatItem('Medium', stats.mediumSolved.toString(), Colors.orangeAccent),
-                _buildStatItem('Hard', stats.hardSolved.toString(), Colors.redAccent),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            const Divider(color: Colors.white12),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Global Ranking',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70),
-                ),
-                Text(
-                  '#${stats.ranking}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white, fontWeight: FontWeight.bold
-                  ),
-                ),
-              ],
-            ),
+            const Text('No stats available', style: TextStyle(color: Colors.white54)),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => provider.fetchStats(username),
+              icon: const Icon(Icons.refresh, size: 16, color: Colors.orangeAccent),
+              label: const Text("Retry", style: TextStyle(color: Colors.orangeAccent)),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+            )
           ],
-        );
-      },
+        )
+      ),
     );
   }
 
