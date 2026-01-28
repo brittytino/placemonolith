@@ -140,13 +140,17 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF6600), Color(0xFFFF8833)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Icon(
-                    Icons.mail_lock_rounded,
+                  child: const Icon(
+                    Icons.verified_user_rounded,
                     size: 40,
-                    color: colorScheme.primary,
+                    color: Colors.white,
                   ),
                 ),
               ),

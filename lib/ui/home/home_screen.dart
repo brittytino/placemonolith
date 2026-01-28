@@ -212,14 +212,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     
                   const SizedBox(height: AppSpacing.xxl),
 
-                  // 6. LeetCode Leaderboard (Below Overview Section)
-                  const LeetCodeLeaderboard(),
-                  const SizedBox(height: AppSpacing.xxl),
-  
-                  // 7. Personal LeetCode Stats (For Everyone with Username)
+                  // 6. Personal LeetCode Stats (For Everyone with Username) - MOVED UP
                   if (user.leetcodeUsername != null && user.leetcodeUsername!.isNotEmpty)
                      const LeetCodeCard(),
                   
+                  if (user.leetcodeUsername != null && user.leetcodeUsername!.isNotEmpty)
+                    const SizedBox(height: AppSpacing.lg),
+
+                  // 7. LeetCode Leaderboard
+                  const LeetCodeLeaderboard(),
+                  const SizedBox(height: AppSpacing.xxl),
+  
                   // Bottom padding
                   const SizedBox(height: AppSpacing.xxl),
                 ]),
@@ -253,14 +256,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.w900,
                     color: Theme.of(context).colorScheme.primary,
                     letterSpacing: -0.5,
-                  ),
-                ),
-                Text(
-                  'Placement 2026',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.secondary,
-                    letterSpacing: 0.5,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

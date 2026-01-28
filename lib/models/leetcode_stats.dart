@@ -1,6 +1,7 @@
 class LeetCodeStats {
   final String username;
   final String? name; // Added name field
+  final String? profilePicture; // Added profile picture URL
   final int totalSolved;
   final int easySolved;
   final int mediumSolved;
@@ -12,6 +13,7 @@ class LeetCodeStats {
   LeetCodeStats({
     required this.username,
     this.name, 
+    this.profilePicture,
     required this.totalSolved,
     required this.easySolved,
     required this.mediumSolved,
@@ -25,6 +27,7 @@ class LeetCodeStats {
     return LeetCodeStats(
       username: map['username'] ?? '',
       name: map['name'], // Map name from DB join or passed value
+      profilePicture: map['profile_picture'], // Map profile picture from DB
       totalSolved: map['total_solved'] ?? 0,
       easySolved: map['easy_solved'] ?? 0,
       mediumSolved: map['medium_solved'] ?? 0,
@@ -39,6 +42,7 @@ class LeetCodeStats {
     return {
       'username': username,
       // 'name': name, // Name is usually not stored in stats table, but joined
+      'profile_picture': profilePicture, // Store profile picture URL
       'total_solved': totalSolved,
       'easy_solved': easySolved,
       'medium_solved': mediumSolved,
@@ -62,10 +66,11 @@ class LeetCodeStats {
     );
   }
   
-  LeetCodeStats copyWith({String? name}) {
+  LeetCodeStats copyWith({String? name, String? profilePicture}) {
     return LeetCodeStats(
       username: username,
       name: name ?? this.name,
+      profilePicture: profilePicture ?? this.profilePicture,
       totalSolved: totalSolved,
       easySolved: easySolved,
       mediumSolved: mediumSolved,

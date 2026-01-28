@@ -450,6 +450,7 @@ class LeetCodeProvider extends ChangeNotifier {
         }
 
         final ranking = matchedUser['profile']['ranking'] as int? ?? 0;
+        final profilePicture = matchedUser['profile']['userAvatar'] as String?;
 
         // Calculate weekly score from submission calendar
         int weeklyScore = 0;
@@ -478,10 +479,11 @@ class LeetCodeProvider extends ChangeNotifier {
           }
         }
 
-        debugPrint('[LeetCode] ✅ [Official API] $username: $totalSolved problems (E:$easySolved M:$mediumSolved H:$hardSolved)');
+        debugPrint('[LeetCode] ✅ [Official API] $username: $totalSolved problems (E:$easySolved M:$mediumSolved H:$hardSolved) ${profilePicture != null ? '🖼️' : ''}');
         
         final stats = LeetCodeStats(
           username: username,
+          profilePicture: profilePicture,
           totalSolved: totalSolved,
           easySolved: easySolved,
           mediumSolved: mediumSolved,

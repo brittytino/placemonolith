@@ -59,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return true;
   }
 
-  /// Handle sign in with first-time user detection
+  /// Handle sign in with smart user detection
   Future<void> _handleSignIn() async {
     setState(() => _generalError = null);
 
@@ -69,43 +69,36 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Try to detect if first time user (optional - if auth service has this method)
       final authService = context.read<UserProvider>().authService;
 
-      // Check if user exists
+      // Check if user already has an account
       bool isFirstTime = false;
+      bool userExistsInSystem = false;
+      
       try {
         isFirstTime = await authService.isFirstTimeUser(email);
+        userExistsInSystem = !isFirstTime; // If not first time, they exist
       } catch (e) {
-        // If method doesn't exist, assume not first time
-        isFirstTime = false;
+        debugPrint('[LoginScreen] Error checking user status: $e');
       }
 
       if (!mounted) return;
 
+      // Show appropriate UI feedback
       if (isFirstTime) {
-        setState(() => _isLoading = false);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Welcome! Let\'s set up your account with an OTP.'),
-              backgroundColor: Color(0xFFFF6600),
-              duration: Duration(seconds: 3),
-            ),
-          );
-
-          // Navigate to OTP signup
-          final success =
-              await context.read<UserProvider>().requestOtp(email: email);
-          if (success && mounted) {
-            context.push('/verify_otp', extra: email);
-          } else if (mounted) {
-            setState(
-                () => _generalError = 'Email not found in student records.');
-          }
-        }
+        // New user - needs to create account
+        setState(() {
+          _isLoading = false;
+          _generalError = '✨ New user detected! Please click "Create New Account" to sign up.';
+        });
         return;
+      }
+
+      if (userExistsInSystem) {
+        // Show that user exists
+        setState(() {
+          _passwordError = null;
+        });
       }
 
       // Returning user - validate password
@@ -116,6 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final password = _passwordController.text;
 
+      // Attempt sign in
       await Provider.of<UserProvider>(context, listen: false).signIn(
         email: email,
         password: password,
@@ -126,9 +120,11 @@ class _LoginScreenState extends State<LoginScreen> {
           String error = e.toString();
           // Clean up error messages
           if (error.contains('Invalid login credentials')) {
-            error = 'Invalid email or password. Please try again.';
+            error = '❌ Invalid email or password. Please try again.';
           } else if (error.contains('Email not confirmed')) {
-            error = 'Please verify your email first.';
+            error = '⚠️ Please verify your email first.';
+          } else if (error.contains('User not found')) {
+            error = '✨ New user? Click "Create New Account" to sign up!';
           }
           _generalError = error;
         });
@@ -163,14 +159,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFF6600).withAlpha(80),
+                        color: const Color(0xFFFF6600).withValues(alpha: 80/255),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
                     ],
                   ),
                   child: const Icon(
-                    Icons.school_rounded,
+                    Icons.rocket_launch_rounded,
                     size: 56,
                     color: Colors.white,
                   ),
@@ -346,27 +342,54 @@ class _LoginScreenState extends State<LoginScreen> {
                               : () async {
                                   // Navigate to signup flow
                                   if (_validateEmail()) {
-                                    setState(() => _isLoading = true);
+                                    setState(() {
+                                      _isLoading = true;
+                                      _generalError = null;
+                                    });
                                     try {
                                       final email = _emailController.text
                                           .trim()
                                           .toLowerCase();
-                                      final success = await context
-                                          .read<UserProvider>()
-                                          .requestOtp(email: email);
+                                      
+                                      final userProvider = context.read<UserProvider>();
+                                      final authService = userProvider.authService;
+                                      
+                                      // Check if user already exists
+                                      final isFirstTime = await authService.isFirstTimeUser(email);
+                                      
+                                      if (!mounted) return;
+                                      
+                                      if (!isFirstTime) {
+                                        // User already has account
+                                        setState(() {
+                                          _isLoading = false;
+                                          _generalError = '⚠️ Account already exists! Please use "Sign In" instead.';
+                                        });
+                                        return;
+                                      }
+                                      
+                                      // Send OTP for new user
+                                      // Using local variable captured before async gap
+                                      final success = await userProvider.requestOtp(email: email);
+                                      
                                       if (mounted) {
                                         if (success) {
-                                          context.push('/verify_otp',
-                                              extra: email);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('🎉 OTP sent! Check your email.'),
+                                              backgroundColor: Color(0xFFFF6600),
+                                            ),
+                                          );
+                                          context.push('/verify_otp', extra: email);
                                         } else {
                                           setState(() => _generalError =
-                                              'Email not found in student records.');
+                                              '❌ Email not found in student records.');
                                         }
                                       }
                                     } catch (e) {
                                       if (mounted) {
                                         setState(
-                                            () => _generalError = e.toString());
+                                            () => _generalError = '❌ ${e.toString()}');
                                       }
                                     } finally {
                                       if (mounted) {
@@ -375,7 +398,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     }
                                   }
                                 },
-                          icon: const Icon(Icons.person_add_rounded, size: 20),
+                          icon: const Icon(Icons.how_to_reg_rounded, size: 20),
                           label: const Text('Create New Account'),
                         ),
                       ),

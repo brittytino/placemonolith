@@ -99,13 +99,13 @@ class _SplashScreenState extends State<SplashScreen>
                           gradient: LinearGradient(
                             colors: [
                               primaryColor,
-                              primaryColor.withAlpha(180),
+                              primaryColor.withValues(alpha: 180/255),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(30),
                           boxShadow: [
                             BoxShadow(
-                              color: primaryColor.withAlpha(100),
+                              color: primaryColor.withValues(alpha: 100/255),
                               blurRadius: 30,
                               spreadRadius: 5,
                             ),
@@ -128,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen>
                               ),
                             ),
                             // Center Icon
-                            Center(
+                            const Center(
                               child: Icon(
                                 Icons.school_rounded,
                                 size: 56,
@@ -148,9 +148,9 @@ class _SplashScreenState extends State<SplashScreen>
               // App Title with gradient
               ShaderMask(
                 shaderCallback: (bounds) => LinearGradient(
-                  colors: [primaryColor, primaryColor.withAlpha(180)],
+                  colors: [primaryColor, primaryColor.withValues(alpha: 180/255)],
                 ).createShader(bounds),
-                child: Text(
+                child: const Text(
                   'PSG MCA',
                   style: TextStyle(
                     fontSize: 36,
@@ -210,7 +210,7 @@ class _SplashScreenState extends State<SplashScreen>
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.orange.withAlpha(50),
+                        color: Colors.orange.withValues(alpha: 50/255),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
@@ -272,7 +272,7 @@ class _CircleRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withAlpha(50)
+      ..color = Colors.white.withValues(alpha: 50/255)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 

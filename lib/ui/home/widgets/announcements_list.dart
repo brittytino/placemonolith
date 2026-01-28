@@ -113,7 +113,7 @@ class AnnouncementsList extends StatelessWidget {
                                   color: Theme.of(context)
                                       .colorScheme
                                       .error
-                                      .withAlpha(180),
+                                      .withValues(alpha: 180/255),
                                 ),
                               ),
                             ),

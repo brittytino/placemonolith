@@ -30,7 +30,7 @@ class PremiumEmptyState extends StatelessWidget {
             return Transform.scale(
               scale: isAnimated ? value : 1.0,
               child: Opacity(
-                opacity: isAnimated ? value : 1.0,
+                opacity: (isAnimated ? value : 1.0).clamp(0.0, 1.0),
                 child: child,
               ),
             );

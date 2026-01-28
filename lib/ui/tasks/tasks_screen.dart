@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
@@ -522,9 +523,66 @@ class _BulkUploadFormState extends State<_BulkUploadForm> {
   bool _isLoading = false;
   String? _statusMessage;
   bool _isError = false;
+  String _uploadType = 'mixed'; // 'leetcode', 'core', 'mixed'
+
+  Future<void> _downloadTemplate() async {
+     try {
+       // Create Excel
+       final excel = Excel.createExcel();
+       // Remove default sheet if possible or just use it
+       
+       final sheet = excel['Sheet1'];
+       
+       List<String> headers = [];
+       List<String> sampleRow = [];
+       
+       String tomorrow = DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 1)));
+
+       if (_uploadType == 'leetcode') {
+          headers = ['Date', 'LeetCode URL'];
+          sampleRow = [tomorrow, 'https://leetcode.com/problems/two-sum'];
+       } else if (_uploadType == 'core') {
+          headers = ['Date', 'CS Topic', 'Description'];
+          sampleRow = [tomorrow, 'Arrays', 'Learn array traversal'];
+       } else {
+          headers = ['Date', 'LeetCode URL', 'CS Topic', 'Description'];
+          sampleRow = [tomorrow, 'https://leetcode.com/problems/two-sum', 'Arrays', 'Learn array traversal'];
+       }
+
+       // Clear existing rows (Sheet1 usually comes with empty rows or just fresh)
+       // excel package sheet logic varies, but appendRow is safe.
+       
+       sheet.appendRow(headers.map((e) => TextCellValue(e)).toList());
+       sheet.appendRow(sampleRow.map((e) => TextCellValue(e)).toList());
+
+       // Save
+       final fileBytes = excel.save();
+       if (fileBytes == null) throw Exception("Failed to generate Excel file");
+
+       final String fileName = 'bulk_upload_template_$_uploadType.xlsx';
+       
+       final String? outputFile = await FilePicker.platform.saveFile(
+         dialogTitle: 'Save Template',
+         fileName: fileName,
+         type: FileType.custom,
+         allowedExtensions: ['xlsx'],
+       );
+
+       if (outputFile != null) {
+          final file = File(outputFile);
+          await file.writeAsBytes(fileBytes);
+          if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Template saved to $outputFile')));
+          }
+       }
+
+     } catch (e) {
+        if (mounted) setState(() { _statusMessage = "Template Error: $e"; _isError = true; });
+     }
+  }
 
   Future<void> _pickAndUpload() async {
-     setState(() => _isLoading = true);
+     setState(() { _isLoading = true; _statusMessage = null; });
      try {
        final result = await FilePicker.platform.pickFiles(
          type: FileType.custom,
@@ -533,14 +591,13 @@ class _BulkUploadFormState extends State<_BulkUploadForm> {
        );
        
        if (result == null) {
-          setState(() { _isLoading = false; _statusMessage = null; _isError = false; });
+          setState(() { _isLoading = false; });
           return;
        }
 
        final bytes = result.files.first.bytes;
        if (bytes == null) throw Exception("Could not read file data.");
 
-       // Parse Excel
        final excel = Excel.decodeBytes(bytes);
        final tasks = <CompositeTask>[];
 
@@ -548,10 +605,16 @@ class _BulkUploadFormState extends State<_BulkUploadForm> {
           final sheet = excel.tables[table];
           if (sheet == null) continue;
           
-          // Skip header row usually, start from 1
           for (int i = 1; i < sheet.maxRows; i++) {
              final row = sheet.row(i);
              if (row.isEmpty) continue;
+             
+             // Check if row has any data
+             bool hasData = false;
+             for (var cell in row) {
+               if (cell?.value != null) hasData = true;
+             }
+             if (!hasData) continue;
              
              try {
                 final dateValRaw = row[0]?.value;
@@ -567,16 +630,46 @@ class _BulkUploadFormState extends State<_BulkUploadForm> {
                 }
 
                 String leet = "";
-                if (row.length > 1) {
-                   final val = row[1]?.value;
-                   if (val is TextCellValue) {
-                      leet = val.value.toString();
-                   } else if (val != null) {
-                      leet = val.toString();
+                String topic = "";
+                String desc = "";
+
+                if (_uploadType == 'leetcode') {
+                    // Col 1: URL
+                    if (row.length > 1) {
+                        final val = row[1]?.value;
+                        leet = val?.toString() ?? ""; 
+                        if (val is TextCellValue) leet = val.value.toString();
+                    }
+                } else if (_uploadType == 'core') {
+                    // Col 1: Topic, Col 2: Desc
+                   if (row.length > 1) {
+                      final val = row[1]?.value;
+                      topic = val?.toString() ?? "";
+                      if (val is TextCellValue) topic = val.value.toString();
+                   }
+                   if (row.length > 2) {
+                      final val = row[2]?.value;
+                      desc = val?.toString() ?? "";
+                      if (val is TextCellValue) desc = val.value.toString();
+                   }
+                } else {
+                   // Mixed
+                   if (row.length > 1) {
+                      final val = row[1]?.value;
+                      leet = val?.toString() ?? "";
+                      if (val is TextCellValue) leet = val.value.toString();
+                   }
+                   if (row.length > 2) {
+                       final val = row[2]?.value;
+                       topic = val?.toString() ?? "";
+                       if (val is TextCellValue) topic = val.value.toString();
+                   }
+                   if (row.length > 3) {
+                       final val = row[3]?.value;
+                       desc = val?.toString() ?? "";
+                       if (val is TextCellValue) desc = val.value.toString();
                    }
                 }
-                final topic = row.length > 2 ? row[2]?.value?.toString() ?? "" : "";
-                final desc = row.length > 3 ? row[3]?.value?.toString() ?? "" : "";
 
                 tasks.add(CompositeTask(
                   date: dateStr, 
@@ -591,19 +684,13 @@ class _BulkUploadFormState extends State<_BulkUploadForm> {
           }
        }
 
-       if (tasks.isEmpty) throw Exception("No valid rows found. Please check file format.");
+       if (tasks.isEmpty) throw Exception("No valid rows found for type '$_uploadType'.");
        
-        // Deduplication: Use Map to keep only latest entry per date
         final taskMap = <String, CompositeTask>{};
         for (final task in tasks) {
-          taskMap[task.date] = task; // Later entries override earlier ones
+          taskMap[task.date] = task; 
         }
         final deduplicatedTasks = taskMap.values.toList();
-        
-        // Show info if duplicates were found
-        if (deduplicatedTasks.length < tasks.length) {
-          debugPrint('Deduplicated: ${tasks.length} rows → ${deduplicatedTasks.length} unique dates');
-        }
         
        if (!mounted) return;
        final dbService = Provider.of<SupabaseDbService>(context, listen: false);
@@ -648,12 +735,45 @@ class _BulkUploadFormState extends State<_BulkUploadForm> {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text("Bulk Task Upload", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.md),
+                
+                // Upload Type Selector
+                DropdownButtonFormField<String>(
+                  key: ValueKey(_uploadType),
+                  initialValue: _uploadType,
+                  decoration: const InputDecoration(
+                    labelText: "Upload Type",
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'mixed', child: Text("Mixed (LeetCode + Core)")),
+                    DropdownMenuItem(value: 'leetcode', child: Text("LeetCode Only")),
+                    DropdownMenuItem(value: 'core', child: Text("Core CS Topic Only")),
+                  ], 
+                  onChanged: (val) {
+                    if (val != null) setState(() => _uploadType = val);
+                  }
+                ),
+                const SizedBox(height: AppSpacing.md),
+
                 Text(
-                  "Upload an Excel (.xlsx) file with columns:\nDate | LeetCode URL | Topic | Description", 
+                  _uploadType == 'mixed' 
+                     ? "Format: Date | LeetCode URL | Topic | Description"
+                     : _uploadType == 'leetcode'
+                       ? "Format: Date | LeetCode URL"
+                       : "Format: Date | Topic | Description",
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                
+                TextButton.icon(
+                  onPressed: _downloadTemplate,
+                  icon: const Icon(Icons.download),
+                  label: const Text("Download Template"),
+                ),
+
                 const SizedBox(height: AppSpacing.xl),
                 
                 if (_isLoading)

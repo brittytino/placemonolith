@@ -149,7 +149,7 @@ class _ModernLeaderboardState extends State<ModernLeaderboard> {
               color: medalColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.star,
               color: Colors.white,
               size: 20,
@@ -162,7 +162,7 @@ class _ModernLeaderboardState extends State<ModernLeaderboard> {
         Center(
           child: CircleAvatar(
             radius: 35,
-            backgroundColor: medalColor.withAlpha(30),
+            backgroundColor: medalColor.withValues(alpha: 30/255),
             child: Text(
               user.username.isNotEmpty ? user.username[0].toUpperCase() : "?",
               style: TextStyle(
@@ -180,7 +180,7 @@ class _ModernLeaderboardState extends State<ModernLeaderboard> {
           height: height,
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            border: Border.all(color: medalColor.withAlpha(100), width: 2),
+            border: Border.all(color: medalColor.withValues(alpha: 100/255), width: 2),
             borderRadius: BorderRadius.circular(16),
           ),
           padding: const EdgeInsets.all(12),
@@ -228,7 +228,7 @@ class _ModernLeaderboardState extends State<ModernLeaderboard> {
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.grey.withAlpha(25),
+          color: Colors.grey.withValues(alpha: 25/255),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -294,7 +294,7 @@ class _ModernLeaderboardState extends State<ModernLeaderboard> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: Colors.grey.withAlpha(50),
+          color: Colors.grey.withValues(alpha: 50/255),
           width: 1,
         ),
       ),
@@ -309,7 +309,7 @@ class _ModernLeaderboardState extends State<ModernLeaderboard> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withAlpha(30),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 30/255),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -326,7 +326,7 @@ class _ModernLeaderboardState extends State<ModernLeaderboard> {
             ),
             CircleAvatar(
               radius: 28,
-              backgroundColor: Theme.of(context).primaryColor.withAlpha(30),
+              backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 30/255),
               child: Text(
                 user.username.isNotEmpty ? user.username[0].toUpperCase() : "?",
                 style: TextStyle(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/leetcode_provider.dart';
-import '../../../providers/user_provider.dart';
 import '../../../models/leetcode_stats.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../services/supabase_service.dart';
@@ -18,7 +17,7 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
   bool _isWeekly = true;
   bool _isRefreshing = false;
   int _currentPage = 0;
-  static const int _usersPerPage = 20;
+  static const int _usersPerPage = 14;
 
   @override
   void initState() {
@@ -87,7 +86,10 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
       );
 
       if (shouldRefresh == true) {
-        await context.read<LeetCodeProvider>().refreshAllUsersFromAPI();
+        final leetCodeProvider = context.read<LeetCodeProvider>();
+        
+        // Use the provider captured before async/await
+        await leetCodeProvider.refreshAllUsersFromAPI();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -149,8 +151,11 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
                 return _buildEmptyState(isDark);
               }
 
-              final top3 = users.take(3).toList();
-              final rest = users.skip(3).toList();
+              // Users (Full List)
+              final displayUsers = users;
+
+              final top3 = displayUsers.take(3).toList();
+              final rest = displayUsers.skip(3).toList();
 
               // Calculate pagination
               final totalPages = (rest.length / _usersPerPage).ceil();
@@ -161,10 +166,6 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
 
               return Column(
                 children: [
-                  // My Stats Card (Current User)
-                  _buildMyStatsCard(provider.allUsers, isDark),
-                  const SizedBox(height: AppSpacing.lg),
-
                   // Top 3 Podium
                   if (top3.isNotEmpty) _buildTop3Podium(top3, isDark),
                   const SizedBox(height: AppSpacing.xl),
@@ -174,7 +175,7 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
                   const SizedBox(height: AppSpacing.lg),
 
                   // Stats Summary
-                  _buildStatsSummary(users.length, isDark),
+                  _buildStatsSummary(displayUsers.length, isDark),
                   const SizedBox(height: AppSpacing.lg),
 
                   // Rest of users in grid with pagination
@@ -211,7 +212,7 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFD700).withAlpha(30),
+            color: const Color(0xFFFFD700).withValues(alpha: 30/255),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(
@@ -355,7 +356,7 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: medalColor.withAlpha(80),
+                color: medalColor.withValues(alpha: 80/255),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -369,17 +370,22 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
         ),
         const SizedBox(height: 4),
 
-        // Avatar - compact
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: medalColor.withAlpha(30),
-          child: Text(
-            user.username.isNotEmpty ? user.username[0].toUpperCase() : "?",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: medalColor,
-            ),
+        // Avatar with profile picture
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: medalColor.withValues(alpha: 100/255), width: 2),
+          ),
+          child: ClipOval(
+            child: user.profilePicture != null && user.profilePicture!.isNotEmpty
+                ? Image.network(
+                    user.profilePicture!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _buildDefaultAvatar(user, isDark, medalColor),
+                  )
+                : _buildDefaultAvatar(user, isDark, medalColor),
           ),
         ),
         const SizedBox(height: 4),
@@ -389,11 +395,11 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
           height: height,
           decoration: BoxDecoration(
             color: bgColor,
-            border: Border.all(color: medalColor.withAlpha(100), width: 2),
+            border: Border.all(color: medalColor.withValues(alpha: 100/255), width: 2),
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(10),
+                color: Colors.black.withValues(alpha: 10/255),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -472,222 +478,8 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
     );
   }
 
-  /// Build the "My Stats" card - shows current user's LeetCode stats
-  Widget _buildMyStatsCard(List<LeetCodeStats> allUsers, bool isDark) {
-    final userProvider = context.watch<UserProvider>();
-    final currentUser = userProvider.currentUser;
 
-    // Get current user's LeetCode username
-    final leetcodeUsername = currentUser?.leetcodeUsername;
 
-    if (leetcodeUsername == null || leetcodeUsername.isEmpty) {
-      return const SizedBox.shrink(); // No LeetCode linked
-    }
-
-    // Find user's stats in leaderboard
-    final myStats = allUsers
-        .where(
-            (s) => s.username.toLowerCase() == leetcodeUsername.toLowerCase())
-        .firstOrNull;
-
-    if (myStats == null) {
-      return const SizedBox.shrink();
-    }
-
-    // Calculate rank
-    final sortedUsers = _getSortedUsers(allUsers);
-    final myRank = sortedUsers.indexWhere(
-            (s) => s.username.toLowerCase() == leetcodeUsername.toLowerCase()) +
-        1;
-
-    final colorScheme = Theme.of(context).colorScheme;
-    final totalProblems = 3427; // LeetCode total as of 2024
-    final solvedPercent = (myStats.totalSolved / totalProblems).clamp(0.0, 1.0);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [const Color(0xFF1E1E1E), const Color(0xFF2D2D2D)]
-              : [Colors.grey.shade50, Colors.white],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(isDark ? 40 : 10),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Header Row: Avatar, Name, Rank
-          Row(
-            children: [
-              // Avatar with gradient border
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFA116), Color(0xFFFF6B35)],
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 28,
-                  backgroundColor: isDark ? Colors.grey[900] : Colors.white,
-                  child: Text(
-                    (currentUser?.name ?? leetcodeUsername)[0].toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-
-              // Name & Username
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      leetcodeUsername,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      currentUser?.name ?? '',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Rank Badge
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[800] : Colors.grey[200],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  "#$myRank",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.grey[300] : Colors.grey[700],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Stats Row: Circular Progress + Easy/Medium/Hard
-          Row(
-            children: [
-              // Circular Progress Ring
-              SizedBox(
-                width: 100,
-                height: 100,
-                child: CustomPaint(
-                  painter: _CircularProgressPainter(
-                    easy: myStats.easySolved,
-                    medium: myStats.mediumSolved,
-                    hard: myStats.hardSolved,
-                    total: myStats.totalSolved,
-                    isDark: isDark,
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          "${myStats.totalSolved}",
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        Text(
-                          "Solved",
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 24),
-
-              // Easy/Medium/Hard Stats
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildDifficultyColumn("Easy", myStats.easySolved,
-                        const Color(0xFF00B8A3), isDark),
-                    _buildDifficultyColumn("Medium", myStats.mediumSolved,
-                        const Color(0xFFFFC01E), isDark),
-                    _buildDifficultyColumn("Hard", myStats.hardSolved,
-                        const Color(0xFFEF4743), isDark),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDifficultyColumn(
-      String label, int value, Color color, bool isDark) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? Colors.grey[400] : Colors.grey[600],
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          "$value",
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildToggle(bool isDark) {
     return Center(
@@ -805,8 +597,8 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
     final isTopPerformer = rank <= 10;
     final gradientColors = isTopPerformer
         ? [
-            Theme.of(context).primaryColor.withAlpha(40),
-            Theme.of(context).primaryColor.withAlpha(10),
+            Theme.of(context).primaryColor.withValues(alpha: 40/255),
+            Theme.of(context).primaryColor.withValues(alpha: 10/255),
           ]
         : [bgColor!, bgColor];
 
@@ -820,14 +612,14 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isTopPerformer
-              ? Theme.of(context).primaryColor.withAlpha(100)
+              ? Theme.of(context).primaryColor.withValues(alpha: 100/255)
               : borderColor!,
           width: isTopPerformer ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color:
-                isDark ? Colors.black.withAlpha(20) : Colors.black.withAlpha(8),
+                isDark ? Colors.black.withValues(alpha: 20/255) : Colors.black.withValues(alpha: 8/255),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -857,7 +649,7 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
                     boxShadow: isTopPerformer
                         ? [
                             BoxShadow(
-                              color: const Color(0xFFFFD700).withAlpha(60),
+                              color: const Color(0xFFFFD700).withValues(alpha: 60/255),
                               blurRadius: 8,
                             ),
                           ]
@@ -877,36 +669,42 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
               ],
             ),
 
-            // Avatar
+            // Avatar with Profile Picture
             Container(
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   colors: [
-                    Theme.of(context).primaryColor.withAlpha(80),
-                    Theme.of(context).primaryColor.withAlpha(40),
+                    Theme.of(context).primaryColor.withValues(alpha: 80/255),
+                    Theme.of(context).primaryColor.withValues(alpha: 40/255),
                   ],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).primaryColor.withAlpha(40),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 40/255),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: CircleAvatar(
-                radius: 28,
-                backgroundColor: Colors.transparent,
-                child: Text(
-                  user.username.isNotEmpty
-                      ? user.username[0].toUpperCase()
-                      : "?",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.transparent,
+                ),
+                child: ClipOval(
+                  child: user.profilePicture != null && user.profilePicture!.isNotEmpty
+                      ? Image.network(
+                          user.profilePicture!,
+                          fit: BoxFit.cover,
+                          width: 56,
+                          height: 56,
+                          errorBuilder: (_, __, ___) => _buildDefaultAvatar(user, isDark, Theme.of(context).primaryColor),
+                        )
+                      : _buildDefaultAvatar(user, isDark, Theme.of(context).primaryColor),
                 ),
               ),
             ),
@@ -942,10 +740,10 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withAlpha(30),
+                color: Theme.of(context).primaryColor.withValues(alpha: 30/255),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Theme.of(context).primaryColor.withAlpha(80),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 80/255),
                   width: 1.5,
                 ),
               ),
@@ -997,9 +795,9 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
-          color: color.withAlpha(25),
+          color: color.withValues(alpha: 25/255),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withAlpha(100), width: 1.5),
+          border: Border.all(color: color.withValues(alpha: 100/255), width: 1.5),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1035,13 +833,13 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Theme.of(context).primaryColor.withAlpha(20),
-            Theme.of(context).primaryColor.withAlpha(5),
+            Theme.of(context).primaryColor.withValues(alpha: 20/255),
+            Theme.of(context).primaryColor.withValues(alpha: 5/255),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Theme.of(context).primaryColor.withAlpha(40),
+          color: Theme.of(context).primaryColor.withValues(alpha: 40/255),
           width: 1,
         ),
       ),
@@ -1097,6 +895,8 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
       ],
     );
   }
+
+
 
   Widget _buildPaginationControls(int totalPages, bool isDark) {
     return Container(
@@ -1193,104 +993,20 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
       ),
     );
   }
-}
-
-/// Custom painter for the LeetCode-style circular progress
-class _CircularProgressPainter extends CustomPainter {
-  final int easy;
-  final int medium;
-  final int hard;
-  final int total;
-  final bool isDark;
-
-  _CircularProgressPainter({
-    required this.easy,
-    required this.medium,
-    required this.hard,
-    required this.total,
-    required this.isDark,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 8;
-    const strokeWidth = 10.0;
-
-    // Background circle
-    final bgPaint = Paint()
-      ..color = isDark ? Colors.grey[800]! : Colors.grey[200]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(center, radius, bgPaint);
-
-    // Calculate angles
-    final totalSolved = easy + medium + hard;
-    if (totalSolved == 0) return;
-
-    final easyAngle = (easy / totalSolved) * 2 * math.pi;
-    final mediumAngle = (medium / totalSolved) * 2 * math.pi;
-    final hardAngle = (hard / totalSolved) * 2 * math.pi;
-
-    // Start from top (-π/2)
-    var startAngle = -math.pi / 2;
-
-    // Draw Easy (Green/Teal)
-    if (easy > 0) {
-      final easyPaint = Paint()
-        ..color = const Color(0xFF00B8A3)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        easyAngle,
-        false,
-        easyPaint,
-      );
-      startAngle += easyAngle;
-    }
-
-    // Draw Medium (Yellow)
-    if (medium > 0) {
-      final mediumPaint = Paint()
-        ..color = const Color(0xFFFFC01E)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        mediumAngle,
-        false,
-        mediumPaint,
-      );
-      startAngle += mediumAngle;
-    }
-
-    // Draw Hard (Red)
-    if (hard > 0) {
-      final hardPaint = Paint()
-        ..color = const Color(0xFFEF4743)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        hardAngle,
-        false,
-        hardPaint,
-      );
-    }
+  
+  /// Build default avatar for users without profile pictures
+  Widget _buildDefaultAvatar(LeetCodeStats user, bool isDark, [Color? accentColor]) {
+    return Container(
+      color: (accentColor ?? Theme.of(context).primaryColor).withValues(alpha: 0.15),
+      child: Center(
+        child: Icon(
+          Icons.person_rounded,
+          size: 24,
+          color: accentColor ?? Theme.of(context).primaryColor,
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
+
+

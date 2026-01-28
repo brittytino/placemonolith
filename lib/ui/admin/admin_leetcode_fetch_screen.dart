@@ -108,9 +108,9 @@ class _AdminLeetCodeFetchScreenState extends State<AdminLeetCodeFetchScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withAlpha(20),
+                  color: Colors.blue.withValues(alpha: 20/255),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.withAlpha(60)),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 60/255)),
                 ),
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
