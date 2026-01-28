@@ -36,7 +36,7 @@ class SupabaseDbService {
         'date': task.date,
         'topic_type': 'core',
         'title': task.csTopic,
-        'subject': task.csTopicDescription, 
+        'subject': task.csTopicDescription,
         // We use 'subject' column for description storage as per our interpretation
         'uploaded_by': user.id,
       }, onConflict: 'date, topic_type, title'));
@@ -53,7 +53,7 @@ class SupabaseDbService {
         .eq('date', dateStr)
         .map((rows) {
           if (rows.isEmpty) return null;
-          
+
           String leetcode = '';
           String topic = '';
           String desc = '';
@@ -67,7 +67,7 @@ class SupabaseDbService {
               desc = row['subject'] ?? ''; // Using subject for description
             }
           }
-          
+
           if (leetcode.isEmpty && topic.isEmpty) return null;
 
           return CompositeTask(
@@ -86,14 +86,14 @@ class SupabaseDbService {
 
   Future<bool> isAttendanceSubmitted(String teamId, String date) async {
     // Check if any attendance record exists for this team on this date
-    // marked by the team leader vs a rep override? 
+    // marked by the team leader vs a rep override?
     // Usually one record per student.
     final count = await _supabase
         .from('attendance')
         .count()
         .eq('team_id', teamId)
         .eq('date', date);
-        
+
     return count > 0;
   }
 
@@ -103,35 +103,40 @@ class SupabaseDbService {
         .select()
         .eq('team_id', teamId)
         .order('reg_no');
-    
+
     return (response as List).map((e) => AppUser.fromMap(e)).toList();
   }
 
-  Future<void> submitTeamAttendance(String teamId, String date, String markedByUid, List<AttendanceRecord> records) async {
-    final validRecords = records.map((r) => {
-      'date': date,
-      'student_id': r.studentUid,
-      'team_id': teamId,
-      'status': r.isPresent ? 'PRESENT' : 'ABSENT',
-      'marked_by': markedByUid,
-    }).toList();
+  Future<void> submitTeamAttendance(String teamId, String date,
+      String markedByUid, List<AttendanceRecord> records) async {
+    final validRecords = records
+        .map((r) => {
+              'date': date,
+              'student_id': r.studentUid,
+              'team_id': teamId,
+              'status': r.isPresent ? 'PRESENT' : 'ABSENT',
+              'marked_by': markedByUid,
+            })
+        .toList();
 
-    await _supabase.from('attendance').upsert(
-      validRecords, 
-      onConflict: 'date, student_id'
-    );
+    await _supabase
+        .from('attendance')
+        .upsert(validRecords, onConflict: 'date, student_id');
   }
 
-  Future<void> overrideAttendance(String regNo, String date, bool isPresent, String actorId, String reason) async {
+  Future<void> overrideAttendance(String regNo, String date, bool isPresent,
+      String actorId, String reason) async {
     // 1. Find student by Reg No
     final studentRes = await _supabase
-      .from('users')
-      .select('id, team_id')
-      .eq('reg_no', regNo)
-      .maybeSingle();
-      
-    if (studentRes == null) throw Exception("Student with Reg No $regNo not found");
-    
+        .from('users')
+        .select('id, team_id')
+        .eq('reg_no', regNo)
+        .maybeSingle();
+
+    if (studentRes == null) {
+      throw Exception("Student with Reg No $regNo not found");
+    }
+
     final studentId = studentRes['id'];
     final teamId = studentRes['team_id'];
 
@@ -139,7 +144,7 @@ class SupabaseDbService {
     await _supabase.from('attendance').upsert({
       'date': date,
       'student_id': studentId,
-      'team_id': teamId ?? 'NA', 
+      'team_id': teamId ?? 'NA',
       'status': isPresent ? 'PRESENT' : 'ABSENT',
       'marked_by': actorId
     }, onConflict: 'date, student_id');
@@ -164,16 +169,18 @@ class SupabaseDbService {
         .stream(primaryKey: ['id'])
         .eq('student_id', studentId)
         .order('date', ascending: false)
-        .map((rows) => rows.map((row) => AttendanceRecord(
-          id: row['id'],
-          date: row['date'],
-          studentUid: row['student_id'],
-          regNo: '', // Not needed for list view
-          teamId: row['team_id'],
-          isPresent: row['status'] == 'PRESENT',
-          timestamp: DateTime.parse(row['created_at']),
-          markedBy: row['marked_by'],
-        )).toList());
+        .map((rows) => rows
+            .map((row) => AttendanceRecord(
+                  id: row['id'],
+                  date: row['date'],
+                  studentUid: row['student_id'],
+                  regNo: '', // Not needed for list view
+                  teamId: row['team_id'],
+                  isPresent: row['status'] == 'PRESENT',
+                  timestamp: DateTime.parse(row['created_at']),
+                  markedBy: row['marked_by'],
+                ))
+            .toList());
   }
 
   // ==========================================
@@ -208,43 +215,38 @@ class SupabaseDbService {
     }
 
     if (rows.isEmpty) return 0;
-    
-    await _supabase.from('daily_tasks').upsert(rows, onConflict: 'date, topic_type, title');
+
+    await _supabase
+        .from('daily_tasks')
+        .upsert(rows, onConflict: 'date, topic_type, title');
     return rows.length;
   }
 
   Future<Map<String, dynamic>> getPlacementStats() async {
-    // 1. Total Students check (using a post-filter or exact query if possible)
-    final allUsers = await _supabase.from('users').select('roles');
-    int studentCount = 0;
-    for(var u in allUsers) {
-      if(u['roles']['isStudent'] == true) studentCount++;
-    }
+    // 1. Total Students from WHITELIST (source of truth - all 123 students)
+    final whitelistCount = await _supabase.from('whitelist').count();
 
     // 2. Count today's attendance
     final today = DateTime.now().toIso8601String().split('T')[0];
     final attendanceCount = await _supabase
-      .from('attendance')
-      .count()
-      .eq('date', today)
-      .eq('status', 'PRESENT');
+        .from('attendance')
+        .count()
+        .eq('date', today)
+        .eq('status', 'PRESENT');
 
     return {
-      'total_students': studentCount,
+      'total_students': whitelistCount,
       'today_present': attendanceCount,
     };
   }
 
   Future<List<AppUser>> getAllStudents() async {
-    final response = await _supabase
-        .from('users')
-        .select()
-        .order('reg_no'); 
-    
+    final response = await _supabase.from('users').select().order('reg_no');
+
     return (response as List)
-      .map((e) => AppUser.fromMap(e))
-      .where((u) => u.isStudent)
-      .toList();
+        .map((e) => AppUser.fromMap(e))
+        .where((u) => u.isStudent)
+        .toList();
   }
 }
 

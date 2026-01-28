@@ -306,22 +306,23 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
 
   Widget _buildTop3Podium(List<LeetCodeStats> top3, bool isDark) {
     return SizedBox(
-      height: 240,
+      height: 320, // Increased to fit content
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // 2nd Place
           if (top3.length > 1)
-            Expanded(child: _buildPodiumCard(top3[1], 2, 180, isDark)),
-          const SizedBox(width: 8),
+            Expanded(child: _buildPodiumCard(top3[1], 2, 140, isDark)),
+          const SizedBox(width: 6),
 
           // 1st Place (Taller)
           if (top3.isNotEmpty)
-            Expanded(child: _buildPodiumCard(top3[0], 1, 210, isDark)),
-          const SizedBox(width: 8),
+            Expanded(child: _buildPodiumCard(top3[0], 1, 160, isDark)),
+          const SizedBox(width: 6),
 
           // 3rd Place
           if (top3.length > 2)
-            Expanded(child: _buildPodiumCard(top3[2], 3, 180, isDark)),
+            Expanded(child: _buildPodiumCard(top3[2], 3, 140, isDark)),
         ],
       ),
     );
@@ -340,42 +341,42 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        // Medal Badge
+        // Medal Badge - compact
         Container(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             color: medalColor,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
                 color: medalColor.withAlpha(80),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Icon(
             rank == 1 ? Icons.star : Icons.star_border,
             color: Colors.white,
-            size: 20,
+            size: 16,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
 
-        // Avatar
+        // Avatar - compact
         CircleAvatar(
-          radius: 30,
+          radius: 22,
           backgroundColor: medalColor.withAlpha(30),
           child: Text(
             user.username.isNotEmpty ? user.username[0].toUpperCase() : "?",
             style: TextStyle(
-              fontSize: 28,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: medalColor,
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
 
         // Card
         Container(
@@ -383,68 +384,51 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
           decoration: BoxDecoration(
             color: bgColor,
             border: Border.all(color: medalColor.withAlpha(100), width: 2),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withAlpha(10),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Name & Username
-              Column(
-                children: [
-                   Text(
-                    user.name ?? user.username,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  if (user.name != null)
-                    Text(
-                      user.username,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey,
-                      ),
-                    ),
-                ],
+              // Name only (no username to save space)
+              Text(
+                user.name ?? user.username,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
 
-              // Stats
-              Column(
-                children: [
-                  Text(
-                    "${_isWeekly ? user.weeklyScore : user.totalSolved}",
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: medalColor,
-                    ),
-                  ),
-                  Text(
-                    _isWeekly ? "Weekly" : "Total",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
-                ],
+              // Stats - compact
+              Text(
+                "${_isWeekly ? user.weeklyScore : user.totalSolved}",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: medalColor,
+                ),
+              ),
+              Text(
+                _isWeekly ? "Weekly" : "Total",
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
               ),
 
-              // Mini stats
+              // Mini stats - compact
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -619,14 +603,16 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
         ),
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.08) : Colors.black.withOpacity(0.03),
+            color:
+                isDark ? Colors.black.withAlpha(20) : Colors.black.withAlpha(8),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(10), // Reduced from 12 to prevent overflow
+        padding:
+            const EdgeInsets.all(10), // Reduced from 12 to prevent overflow
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           mainAxisSize: MainAxisSize.min, // Prevent overflow
