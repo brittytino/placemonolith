@@ -619,7 +619,7 @@ class _LeetCodeLeaderboardState extends State<LeetCodeLeaderboard> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(isDark ? 20 : 8),
+            color: isDark ? Colors.black.withOpacity(0.08) : Colors.black.withOpacity(0.03),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

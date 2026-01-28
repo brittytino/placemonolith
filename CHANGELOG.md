@@ -2,9 +2,9 @@
 
 All notable changes to PSG MCA Placement Prep App will be documented in this file.
 
-## [1.0.0] - 2026-01-28
+## [1.0.5] - 2026-01-28
 
-### Production Release
+### Production Release - All Critical Issues Fixed
 
 #### ✨ Features
 - Complete OTP-based authentication system with password setup

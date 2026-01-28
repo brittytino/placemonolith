@@ -1,4 +1,4 @@
-# 📱 PSG MCA Placement Prep App - v1.0.0
+# 📱 PSG MCA Placement Prep App - v1.0.5
 
 ## 🎉 Production Release Ready!
 
@@ -166,7 +166,7 @@ For issues or questions:
 
 ## 📦 Build Info
 
-- **Version**: 1.0.0+1
+- **Version**: 1.0.5+5
 - **Flutter**: 3.27.x
 - **Dart**: 3.2.x
 - **Build Date**: January 28, 2026
